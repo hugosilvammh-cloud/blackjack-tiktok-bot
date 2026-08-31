@@ -8,6 +8,8 @@
 <title>Blackjack Live</title>
 
 <style>
+/* ===== TODO O SEU CSS AQUI ===== */
+/* (Mantenha exatamente como está no seu arquivo) */
 *{
     box-sizing:border-box;
 }
@@ -2314,121 +2316,2776 @@ body.fullscreen-active{
 
 
 <script>
+
+/* ============================================================
+   SEU CÓDIGO ORIGINAL (mantido intacto)
+   ============================================================ */
+
+/* =========================
+   FULL SCREEN
+========================= */
+
+function estaEmTelaCheia(){
+
+    return !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement
+    );
+
+}
+
+
+async function alternarTelaCheia(){
+
+    try{
+
+        if(!estaEmTelaCheia()){
+
+            if(
+                document.documentElement.requestFullscreen
+            ){
+
+                await document.documentElement.requestFullscreen();
+
+            }
+
+            else if(
+                document.documentElement.webkitRequestFullscreen
+            ){
+
+                document.documentElement.webkitRequestFullscreen();
+
+            }
+
+            document.body.classList.add(
+                "fullscreen-active"
+            );
+
+            atualizarBotaoTelaCheia();
+
+        }
+
+        else{
+
+            if(
+                document.exitFullscreen
+            ){
+
+                await document.exitFullscreen();
+
+            }
+
+            else if(
+                document.webkitExitFullscreen
+            ){
+
+                document.webkitExitFullscreen();
+
+            }
+
+            document.body.classList.remove(
+                "fullscreen-active"
+            );
+
+            atualizarBotaoTelaCheia();
+
+        }
+
+    }
+
+    catch(erro){
+
+        console.log(
+            "Fullscreen não disponível:",
+            erro
+        );
+
+    }
+
+}
+
+
+function atualizarBotaoTelaCheia(){
+
+    const botao=
+        document.getElementById(
+            "fullscreenButton"
+        );
+
+    if(!botao){
+        return;
+    }
+
+    botao.innerHTML="⛶";
+
+}
+
+
+document.addEventListener(
+    "fullscreenchange",
+    function(){
+
+        document.body.classList.toggle(
+            "fullscreen-active",
+            estaEmTelaCheia()
+        );
+
+        atualizarBotaoTelaCheia();
+
+    }
+);
+
+
+document.addEventListener(
+    "webkitfullscreenchange",
+    function(){
+
+        document.body.classList.toggle(
+            "fullscreen-active",
+            estaEmTelaCheia()
+        );
+
+        atualizarBotaoTelaCheia();
+
+    }
+);
+
+
+/* =========================
+   CONFIGURATION
+========================= */
+
+const MAX_VIDAS = 3;
+const TEMPO_CARTA = 750;
+
+let baralho = [];
+let fase = "waiting";
+let ordemTurnos = [];
+let indiceTurno = 0;
+let turnoAtual = null;
+
+let mensagemTimer = null;
+let mensagemFinalTimer = null;
+
+let distribuindo = false;
+let finalizandoRodada = false;
+
+
+/* =========================
+   PLAYERS
+========================= */
+
+const jogadores = {
+
+    1:{
+        nome:"",
+        ocupado:false,
+        vidas:MAX_VIDAS,
+        cartas:[],
+        pontuacao:0,
+        parou:false,
+        blackjack:false
+    },
+
+    2:{
+        nome:"",
+        ocupado:false,
+        vidas:MAX_VIDAS,
+        cartas:[],
+        pontuacao:0,
+        parou:false,
+        blackjack:false
+    }
+
+};
+
+
+/* =========================
+   DEALER
+========================= */
+
+let dealer = {
+    cartas:[],
+    pontuacao:0,
+    revelado:false
+};
+
+
+/* =========================
+   DECK
+========================= */
+
+function criarBaralho(){
+
+    const valores=[
+        "A","2","3","4","5","6","7",
+        "8","9","10","J","Q","K"
+    ];
+
+    const naipes=[
+        "♥️","♦️","♣️","♠️"
+    ];
+
+    baralho=[];
+
+    for(const naipe of naipes){
+
+        for(const valor of valores){
+
+            baralho.push({
+                valor:valor,
+                naipe:naipe
+            });
+
+        }
+
+    }
+
+    for(
+        let i=baralho.length-1;
+        i>0;
+        i--
+    ){
+
+        const j=
+            Math.floor(
+                Math.random()*(i+1)
+            );
+
+        [
+            baralho[i],
+            baralho[j]
+        ]=[
+            baralho[j],
+            baralho[i]
+        ];
+
+    }
+
+}
+
+
+function pegarCarta(){
+
+    if(baralho.length===0){
+        criarBaralho();
+    }
+
+    return baralho.pop();
+
+}
+
+
+/* =========================
+   CARD VALUE
+========================= */
+
+function valorCarta(carta){
+
+    if(carta.valor==="A"){
+        return 11;
+    }
+
+    if(
+        ["J","Q","K"]
+        .includes(carta.valor)
+    ){
+
+        return 10;
+
+    }
+
+    return Number(carta.valor);
+
+}
+
+
+function calcularPontos(cartas){
+
+    let total=0;
+    let ases=0;
+
+    for(const carta of cartas){
+
+        total+=valorCarta(carta);
+
+        if(carta.valor==="A"){
+            ases++;
+        }
+
+    }
+
+    while(
+        total>21 &&
+        ases>0
+    ){
+
+        total-=10;
+        ases--;
+
+    }
+
+    return total;
+
+}
+
+
+/* =========================
+   CARD HTML
+========================= */
+
+function htmlCarta(
+    carta,
+    animar=false,
+    revelar=false
+){
+
+    return `
+
+        <span class="
+            carta
+            ${animar ? "carta-animada" : ""}
+            ${revelar ? "carta-revelando" : ""}
+        ">
+
+            ${carta.valor}
+
+            <span class="naipe">
+                ${carta.naipe}
+            </span>
+
+        </span>
+
+    `;
+
+}
+
+
+/* =========================
+   LIVES
+========================= */
+
+function htmlVidas(vidas){
+
+    let html="";
+
+    for(
+        let i=0;
+        i<MAX_VIDAS;
+        i++
+    ){
+
+        html+=
+            i<vidas
+            ? "❤️"
+            : "🖤";
+
+    }
+
+    return html;
+
+}
+
+
+/* =========================
+   UPDATE PLAYER
+========================= */
+
+function atualizarJogador(numero){
+
+    const j=jogadores[numero];
+
+    document.getElementById(
+        "vidas"+numero
+    ).innerHTML=
+        htmlVidas(j.vidas);
+
+    document.getElementById(
+        "pontuacao"+numero
+    ).innerHTML=
+        j.pontuacao+
+        " points";
+
+    document.getElementById(
+        "contador"+numero
+    ).innerHTML=
+        "🃏 "+
+        j.cartas.length+
+        " cards";
+
+}
+
+
+/* =========================
+   RESULT ANIMATION
+========================= */
+
+function animarResultado(
+    numero,
+    tipo
+){
+
+    const box=
+        document.getElementById(
+            "box"+numero
+        );
+
+    box.classList.remove(
+        "resultado-vitoria",
+        "resultado-derrota",
+        "resultado-empate",
+        "resultado-blackjack"
+    );
+
+    void box.offsetWidth;
+
+    box.classList.add(
+        "resultado-"+tipo
+    );
+
+    setTimeout(()=>{
+
+        box.classList.remove(
+            "resultado-"+tipo
+        );
+
+    },2000);
+
+}
+
+
+/* =========================
+   LIFE EXPLOSION
+========================= */
+
+function animarExplosaoVidas(){
+
+    const explosao=
+        document.getElementById(
+            "explosaoVidas"
+        );
+
+    explosao.classList.remove(
+        "mostrar"
+    );
+
+    void explosao.offsetWidth;
+
+    explosao.classList.add(
+        "mostrar"
+    );
+
+    setTimeout(()=>{
+
+        explosao.classList.remove(
+            "mostrar"
+        );
+
+    },1900);
+
+}
+
+
+/* =========================
+   DEALER
+========================= */
+
+function atualizarPontuacaoDealer(){
+
+    document.getElementById(
+        "pontuacaoDealer"
+    ).innerHTML=
+        dealer.pontuacao+
+        " points";
+
+}
+
+
+/* =========================
+   COMMENTARY
+========================= */
+
+function narrar(texto){
+
+    document.getElementById(
+        "narracaoTexto"
+    ).innerHTML=
+        "🎙️ "+texto;
+
+}
+
+
+/* =========================
+   HISTORY
+========================= */
+
+function evento(texto){
+
+    const div=
+        document.createElement("div");
+
+    div.className="evento";
+
+    div.innerHTML=texto;
+
+    document.getElementById(
+        "historico"
+    ).prepend(div);
+
+}
+
+
+/* =========================
+   CLEAR MESSAGE
+========================= */
+
+function limparMensagemMesa(){
+
+    const mensagem=
+        document.getElementById(
+            "mensagemMesa"
+        );
+
+    const mesa=
+        document.getElementById(
+            "mesa"
+        );
+
+    if(mensagemTimer){
+        clearTimeout(mensagemTimer);
+        mensagemTimer=null;
+    }
+
+    if(mensagemFinalTimer){
+        clearTimeout(mensagemFinalTimer);
+        mensagemFinalTimer=null;
+    }
+
+    mensagem.classList.remove(
+        "mostrar",
+        "saindo"
+    );
+
+    mensagem.innerHTML="";
+
+    mesa.classList.remove(
+        "falaAtiva"
+    );
+
+}
+
+
+/* =========================
+   SHOW MESSAGE
+========================= */
+
+function mostrarMensagemMesa(
+    texto,
+    duracao=3500
+){
+
+    const mensagem=
+        document.getElementById(
+            "mensagemMesa"
+        );
+
+    const mesa=
+        document.getElementById(
+            "mesa"
+        );
+
+    if(mensagemTimer){
+        clearTimeout(mensagemTimer);
+    }
+
+    if(mensagemFinalTimer){
+        clearTimeout(mensagemFinalTimer);
+    }
+
+    mensagem.classList.remove(
+        "mostrar",
+        "saindo"
+    );
+
+    mesa.classList.remove(
+        "falaAtiva"
+    );
+
+    mensagem.innerHTML="";
+
+    void mensagem.offsetWidth;
+
+    mensagem.innerHTML=texto;
+
+    mesa.classList.add(
+        "falaAtiva"
+    );
+
+    mensagem.classList.add(
+        "mostrar"
+    );
+
+    mensagemTimer=
+        setTimeout(()=>{
+
+            mensagem.classList.remove(
+                "mostrar"
+            );
+
+            mensagem.classList.add(
+                "saindo"
+            );
+
+            mensagemFinalTimer=
+                setTimeout(()=>{
+
+                    mensagem.classList.remove(
+                        "saindo"
+                    );
+
+                    mensagem.innerHTML="";
+
+                    mesa.classList.remove(
+                        "falaAtiva"
+                    );
+
+                    mensagemTimer=null;
+                    mensagemFinalTimer=null;
+
+                },300);
+
+        },duracao);
+
+}
+
+
+/* =========================
+   WELCOME
+========================= */
+
+function mostrarBoasVindas(nome){
+
+    const mesa=
+        document.getElementById(
+            "mesa"
+        );
+
+    const antiga=
+        document.getElementById(
+            "mensagemBoasVindas"
+        );
+
+    if(antiga){
+        antiga.remove();
+    }
+
+    mesa.classList.add(
+        "falaAtiva"
+    );
+
+    const mensagem=
+        document.createElement("div");
+
+    mensagem.id=
+        "mensagemBoasVindas";
+
+    mensagem.className=
+        "mensagemBoasVindas";
+
+    mensagem.innerHTML=`
+
+        <div class="boasTitulo">
+            👋 WELCOME TO THE TABLE!
+        </div>
+
+        <div class="boasNome">
+            ${nome} joined the game!
+        </div>
+
+    `;
+
+    mesa.appendChild(mensagem);
+
+    setTimeout(()=>{
+
+        mensagem.remove();
+
+        mesa.classList.remove(
+            "falaAtiva"
+        );
+
+    },2800);
+
+}
+
+
+/* =========================
+   COMMENTARY MESSAGES
+========================= */
+
+function mensagemJogador(){
+
+    if(
+        turnoAtual===null ||
+        !jogadores[turnoAtual] ||
+        !jogadores[turnoAtual].ocupado
+    ){
+
+        mostrarMensagemMesa(
+            "⏳ NO PLAYER<br>IS CURRENTLY PLAYING."
+        );
+
+        return;
+
+    }
+
+    mostrarMensagemMesa(
+        "🃏 HIT OR STAND?"
+    );
+
+}
+
+
+function mensagemComandos(){
+
+    mostrarMensagemMesa(
+
+        "WHEN IT'S YOUR TURN, USE THE CHAT:<br>"+
+        "1️⃣ HIT → GET ANOTHER CARD.<br>"+
+        "2️⃣ STAND → STOP AND KEEP YOUR HAND.",
+
+        5000
+
+    );
+
+}
+
+
+function mensagemLike(){
+
+    mostrarMensagemMesa(
+
+        "❤️ LEAVE A LIKE!<br>"+
+        "I HOPE YOU'RE ENJOYING THE LIVE."
+
+    );
+
+}
+
+
+function mensagemMeta(){
+
+    mostrarMensagemMesa(
+
+        "🎯 HELP ME REACH THE GOAL<br>"+
+        "US$ 15"
+
+    );
+
+}
+
+
+function mensagemRosas(){
+
+    mostrarMensagemMesa(
+
+        "🎯 HELP ME REACH THE GOAL<br>"+
+        "200 🌹"
+
+    );
+
+}
+
+
+function mensagemVagas(){
+
+    let vagas=0;
+
+    for(
+        const numero of [1,2]
+    ){
+
+        if(!jogadores[numero].ocupado){
+            vagas++;
+        }
+
+    }
+
+    if(vagas===0){
+
+        mostrarMensagemMesa(
+            "THE TABLE IS FULL!"
+        );
+
+        return;
+
+    }
+
+    mostrarMensagemMesa(
+
+        "OPEN SEATS!<br>"+
+        "TYPE <b>BLACKJACK</b><br>"+
+        "IN THE CHAT TO JOIN."
+
+    );
+
+}
+
+
+function mensagemAgradecimento(){
+
+    mostrarMensagemMesa(
+
+        "❤️ THANK YOU SO MUCH<br>"+
+        "TO EVERYONE WATCHING!"
+
+    );
+
+}
+
+
+function mensagemObrigado(){
+
+    mostrarMensagemMesa(
+
+        "❤️ THANK YOU<br>"+
+        "FOR HELPING WITH THE GOAL ❤"
+
+    );
+
+}
+
+
+/* =========================
+   JOIN (LOCAL)
+========================= */
+
+function entrar(){
+
+    const input=
+        document.getElementById(
+            "nomeEntrada"
+        );
+
+    const nome=
+        input.value.trim();
+
+    if(!nome){
+
+        alert(
+            "Enter the player's name."
+        );
+
+        return;
+
+    }
+
+    let vaga=null;
+
+    if(!jogadores[1].ocupado){
+        vaga=1;
+    }
+
+    else if(!jogadores[2].ocupado){
+        vaga=2;
+    }
+
+    if(!vaga){
+
+        alert(
+            "Table is full."
+        );
+
+        return;
+
+    }
+
+    jogadores[vaga]={
+
+        nome:nome,
+        ocupado:true,
+        vidas:MAX_VIDAS,
+        cartas:[],
+        pontuacao:0,
+        parou:false,
+        blackjack:false
+
+    };
+
+    document.getElementById(
+        "titulo"+vaga
+    ).innerHTML=
+        "👤 "+nome;
+
+    document.getElementById(
+        "status"+vaga
+    ).innerHTML=
+        "🟡 WAITING";
+
+    document.getElementById(
+        "box"+vaga
+    ).classList.remove(
+        "eliminado"
+    );
+
+    atualizarJogador(vaga);
+
+    input.value="";
+
+    narrar(
+        nome+
+        " joined the table."
+    );
+
+    evento(
+        "👤 "+
+        nome+
+        " joined the table."
+    );
+
+    mostrarBoasVindas(nome);
+
+}
+
+
+/* =========================
+   NEW ROUND
+========================= */
+
+function novaRodada(){
+
+    if(distribuindo){
+
+        alert(
+            "Cards are still being dealt."
+        );
+
+        return;
+
+    }
+
+    if(
+        fase==="players" ||
+        fase==="dealer"
+    ){
+
+        alert(
+            "The current round has not ended yet."
+        );
+
+        return;
+
+    }
+
+    const ativos=
+        [1,2].filter(
+
+            numero =>
+                jogadores[numero].ocupado &&
+                jogadores[numero].vidas>0
+
+        );
+
+    if(ativos.length===0){
+
+        alert(
+            "There are no active players."
+        );
+
+        return;
+
+    }
+
+    limparMensagemMesa();
+
+    finalizandoRodada=false;
+
+    criarBaralho();
+
+    dealer={
+        cartas:[],
+        pontuacao:0,
+        revelado:false
+    };
+
+    document.getElementById(
+        "cartasDealer"
+    ).innerHTML="";
+
+    atualizarPontuacaoDealer();
+
+    document.getElementById(
+        "dealerStatus"
+    ).innerHTML=
+        "⚪ WAITING";
+
+    document.getElementById(
+        "dealerStatus"
+    ).classList.remove(
+        "ativo"
+    );
+
+    document.getElementById(
+        "areaDealer"
+    ).classList.remove(
+        "vezDealer"
+    );
+
+    for(
+        const numero of [1,2]
+    ){
+
+        const j=
+            jogadores[numero];
+
+        j.cartas=[];
+        j.pontuacao=0;
+        j.parou=false;
+        j.blackjack=false;
+
+        document.getElementById(
+            "cartas"+numero
+        ).innerHTML="";
+
+        document.getElementById(
+            "resultado"+numero
+        ).innerHTML="";
+
+        document.getElementById(
+            "box"+numero
+        ).classList.remove(
+            "vez",
+            "resultado-vitoria",
+            "resultado-derrota",
+            "resultado-empate",
+            "resultado-blackjack"
+        );
+
+        if(
+            j.ocupado &&
+            j.vidas>0
+        ){
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "🟡 GETTING READY";
+
+        }
+
+        atualizarJogador(numero);
+
+    }
+
+    ordemTurnos=ativos.slice();
+
+    indiceTurno=0;
+    turnoAtual=null;
+
+    fase="dealing";
+    distribuindo=true;
+
+    document.getElementById(
+        "statusMesa"
+    ).innerHTML=
+        "🃏 DEALING CARDS...";
+
+    narrar(
+        "New round started! Cards are being dealt."
+    );
+
+    distribuirCartas();
+
+}
+
+
+/* =========================
+   DEALING
+========================= */
+
+async function distribuirCartas(){
+
+    const ativos=
+        [1,2].filter(
+
+            numero =>
+                jogadores[numero].ocupado &&
+                jogadores[numero].vidas>0
+
+        );
+
+    await esperar(350);
+
+    for(
+        const numero of ativos
+    ){
+
+        await distribuirCartaJogador(
+            numero
+        );
+
+    }
+
+    await distribuirCartaDealer(true);
+
+    for(
+        const numero of ativos
+    ){
+
+        await distribuirCartaJogador(
+            numero
+        );
+
+    }
+
+    await distribuirCartaDealer(false);
+
+    distribuindo=false;
+    fase="players";
+    indiceTurno=0;
+    turnoAtual=null;
+
+    document.getElementById(
+        "statusMesa"
+    ).innerHTML=
+        "🎙️ CARDS DEALT";
+
+    narrar(
+        "The cards have been dealt. Let's begin."
+    );
+
+    await esperar(700);
+
+    proximoJogador();
+
+}
+
+
+/* =========================
+   DEAL PLAYER CARD
+========================= */
+
+async function distribuirCartaJogador(
+    numero
+){
+
+    const carta=pegarCarta();
+
+    const j=jogadores[numero];
+
+    j.cartas.push(carta);
+
+    j.pontuacao=
+        calcularPontos(
+            j.cartas
+        );
+
+    document.getElementById(
+        "cartas"+numero
+    ).insertAdjacentHTML(
+
+        "beforeend",
+
+        htmlCarta(
+            carta,
+            true
+        )
+
+    );
+
+    atualizarJogador(numero);
+
+    await esperar(
+        TEMPO_CARTA
+    );
+
+}
+
+
+/* =========================
+   DEAL DEALER CARD
+========================= */
+
+async function distribuirCartaDealer(
+    primeira
+){
+
+    const carta=pegarCarta();
+
+    dealer.cartas.push(carta);
+
+    dealer.pontuacao=
+        calcularPontos(
+            dealer.cartas
+        );
+
+    const area=
+        document.getElementById(
+            "cartasDealer"
+        );
+
+    if(primeira){
+
+        area.innerHTML=
+            htmlCarta(
+                carta,
+                true
+            );
+
+        atualizarPontuacaoDealer();
+
+    }
+
+    else{
+
+        area.innerHTML=
+
+            htmlCarta(
+                dealer.cartas[0]
+            )+
+
+            `
+            <span
+                class="
+                    carta
+                    escondida
+                    carta-animada
+                "
+            >
+                ❓
+            </span>
+            `;
+
+        document.getElementById(
+            "pontuacaoDealer"
+        ).innerHTML=
+            "❓ points";
+
+    }
+
+    await esperar(
+        TEMPO_CARTA
+    );
+
+}
+
+
+/* =========================
+   WAIT
+========================= */
+
+function esperar(ms){
+
+    return new Promise(
+        resolve =>
+            setTimeout(
+                resolve,
+                ms
+            )
+    );
+
+}
+
+
+/* =========================
+   NEXT PLAYER
+========================= */
+
+function proximoJogador(){
+
+    if(turnoAtual){
+
+        document.getElementById(
+            "box"+turnoAtual
+        ).classList.remove(
+            "vez"
+        );
+
+    }
+
+    while(
+        indiceTurno<
+        ordemTurnos.length
+    ){
+
+        const numero=
+            ordemTurnos[
+                indiceTurno++
+            ];
+
+        const j=
+            jogadores[numero];
+
+        if(
+            j.ocupado &&
+            j.vidas>0 &&
+            !j.parou
+        ){
+
+            iniciarTurno(numero);
+
+            return;
+
+        }
+
+    }
+
+    const jogadoresValidos=
+        [1,2].filter(
+
+            numero =>
+                jogadores[numero].ocupado &&
+                jogadores[numero].vidas>0 &&
+                jogadores[numero].pontuacao<=21
+
+        );
+
+    if(
+        jogadoresValidos.length===0
+    ){
+
+        finalizarRodada();
+
+        return;
+
+    }
+
+    iniciarTurnoDealer();
+
+}
+
+
+/* =========================
+   TURN
+========================= */
+
+function iniciarTurno(numero){
+
+    turnoAtual=numero;
+
+    const j=jogadores[numero];
+
+    document.getElementById(
+        "box"+numero
+    ).classList.add(
+        "vez"
+    );
+
+    document.getElementById(
+        "status"+numero
+    ).innerHTML=
+        "🔵 YOUR TURN";
+
+    document.getElementById(
+        "statusMesa"
+    ).innerHTML=
+        "🔵 "+
+        j.nome.toUpperCase()+
+        "'S TURN";
+
+    narrar(
+
+        "It's "+
+        j.nome+
+        "'s turn. Use the chat: 1️⃣ HIT or 2️⃣ STAND."
+
+    );
+
+    if(
+        j.pontuacao===21 &&
+        j.cartas.length===2
+    ){
+
+        j.blackjack=true;
+        j.parou=true;
+
+        document.getElementById(
+            "status"+numero
+        ).innerHTML=
+            "🃏 BLACKJACK";
+
+        document.getElementById(
+            "resultado"+numero
+        ).innerHTML=
+            "🃏 BLACKJACK!";
+
+        animarResultado(
+            numero,
+            "blackjack"
+        );
+
+        mostrarBlackjack(
+            j.nome,
+            21
+        );
+
+        setTimeout(
+            proximoJogador,
+            1800
+        );
+
+    }
+
+}
+
+
+/* =========================
+   CAN PLAY
+========================= */
+
+function podeJogar(numero){
+
+    if(
+        fase!=="players"
+    ){
+
+        return false;
+
+    }
+
+    if(
+        turnoAtual!==numero
+    ){
+
+        alert(
+            "⏳ It's not this player's turn yet."
+        );
+
+        return false;
+
+    }
+
+    const j=
+        jogadores[numero];
+
+    return(
+        j.ocupado &&
+        !j.parou &&
+        j.vidas>0
+    );
+
+}
+
+
+/* =========================
+   PLAYER HIT
+========================= */
+
+function cartaJogador(numero){
+
+    if(!podeJogar(numero)){
+        return;
+    }
+
+    const j=
+        jogadores[numero];
+
+    const carta=
+        pegarCarta();
+
+    j.cartas.push(carta);
+
+    j.pontuacao=
+        calcularPontos(
+            j.cartas
+        );
+
+    document.getElementById(
+        "cartas"+numero
+    ).insertAdjacentHTML(
+
+        "beforeend",
+
+        htmlCarta(
+            carta,
+            true
+        )
+
+    );
+
+    atualizarJogador(numero);
+
+    if(
+        j.pontuacao===21
+    ){
+
+        j.parou=true;
+
+        document.getElementById(
+            "status"+numero
+        ).innerHTML=
+            "🛑 21 POINTS";
+
+        narrar(
+
+            j.nome+
+            " reached 21 points and stands."
+
+        );
+
+        setTimeout(
+            proximoJogador,
+            500
+        );
+
+        return;
+
+    }
+
+    if(
+        j.pontuacao>21
+    ){
+
+        j.parou=true;
+
+        document.getElementById(
+            "status"+numero
+        ).innerHTML=
+            "💥 BUSTED";
+
+        document.getElementById(
+            "resultado"+numero
+        ).innerHTML=
+            "💀 LOST!";
+
+        animarResultado(
+            numero,
+            "derrota"
+        );
+
+        narrar(
+
+            j.nome+
+            " busted with "+
+            j.pontuacao+
+            " points."
+
+        );
+
+        perderVida(numero);
+
+        setTimeout(
+            proximoJogador,
+            700
+        );
+
+        return;
+
+    }
+
+    narrar(
+
+        j.nome+
+        " has "+
+        j.pontuacao+
+        " points. Use the chat: 1️⃣ HIT or 2️⃣ STAND."
+
+    );
+
+}
+
+
+/* =========================
+   STAND
+========================= */
+
+function parar(numero){
+
+    if(!podeJogar(numero)){
+        return;
+    }
+
+    const j=
+        jogadores[numero];
+
+    j.parou=true;
+
+    document.getElementById(
+        "status"+numero
+    ).innerHTML=
+        "🛑 STAND";
+
+    narrar(
+
+        j.nome+
+        " stands with "+
+        j.pontuacao+
+        " points."
+
+    );
+
+    setTimeout(
+        proximoJogador,
+        500
+    );
+
+}
+
+
+/* =========================
+   DEALER TURN
+========================= */
+
+function iniciarTurnoDealer(){
+
+    const ativos=
+        [1,2].filter(
+
+            numero =>
+                jogadores[numero].ocupado &&
+                jogadores[numero].vidas>0
+
+        );
+
+    const jogadoresQuePodemDisputar=
+        ativos.filter(
+
+            numero =>
+                jogadores[numero].pontuacao<=21
+
+        );
+
+    if(
+        jogadoresQuePodemDisputar.length===0
+    ){
+
+        finalizarRodada();
+
+        return;
+
+    }
+
+    fase="dealer";
+    turnoAtual=null;
+
+    document.querySelectorAll(
+        ".jogador"
+    ).forEach(
+
+        el =>
+            el.classList.remove(
+                "vez"
+            )
+
+    );
+
+    document.getElementById(
+        "areaDealer"
+    ).classList.add(
+        "vezDealer"
+    );
+
+    document.getElementById(
+        "dealerStatus"
+    ).innerHTML=
+        "🟡 DEALER'S TURN";
+
+    document.getElementById(
+        "dealerStatus"
+    ).classList.add(
+        "ativo"
+    );
+
+    document.getElementById(
+        "statusMesa"
+    ).innerHTML=
+        "🎩 DEALER'S TURN";
+
+    narrar(
+        "Now it's the Dealer's turn."
+    );
+
+}
+
+
+/* =========================
+   REVEAL DEALER
+========================= */
+
+function revelarDealer(){
+
+    dealer.revelado=true;
+
+    atualizarDealerTela(true);
+
+    narrar(
+        "The Dealer revealed the cards."
+    );
+
+}
+
+
+function atualizarDealerTela(
+    animarRevelacao=false){
+
+    const area=
+        document.getElementById(
+            "cartasDealer"
+        );
+
+    if(
+        dealer.revelado
+    ){
+
+        area.innerHTML=
+
+            dealer.cartas
+                .map(
+
+                    (carta,index) =>
+
+                        htmlCarta(
+                            carta,
+                            false,
+                            animarRevelacao &&
+                            index===1
+                        )
+
+                )
+                .join("");
+
+        atualizarPontuacaoDealer();
+
+        return;
+
+    }
+
+    area.innerHTML=
+
+        htmlCarta(
+            dealer.cartas[0]
+        )+
+
+        `
+        <span
+            class="
+                carta
+                escondida
+            "
+        >
+            ❓
+        </span>
+        `;
+
+    document.getElementById(
+        "pontuacaoDealer"
+    ).innerHTML=
+        "❓ points";
+
+}
+
+
+/* =========================
+   DEALER HIT
+========================= */
+
+function cartaDealer(){
+
+    if(
+        fase!=="dealer"
+    ){
+
+        alert(
+            "⏳ It's not the Dealer's turn yet."
+        );
+
+        return;
+
+    }
+
+    if(!dealer.revelado){
+        revelarDealer();
+    }
+
+    if(
+        dealer.pontuacao<17
+    ){
+
+        comprarCartaDealer();
+
+    }
+
+    else{
+
+        finalizarRodada();
+
+    }
+
+}
+
+
+/* =========================
+   DEALER DRAW
+========================= */
+
+function comprarCartaDealer(){
+
+    const carta=
+        pegarCarta();
+
+    dealer.cartas.push(carta);
+
+    dealer.pontuacao=
+        calcularPontos(
+            dealer.cartas
+        );
+
+    const area=
+        document.getElementById(
+            "cartasDealer"
+        );
+
+    area.innerHTML=
+
+        dealer.cartas
+            .map(
+                cartaAtual =>
+                    htmlCarta(cartaAtual)
+            )
+            .join("");
+
+    const novaCarta=
+        area.lastElementChild;
+
+    if(novaCarta){
+
+        novaCarta.classList.add(
+            "carta-animada"
+        );
+
+    }
+
+    atualizarPontuacaoDealer();
+
+    if(
+        dealer.pontuacao>21
+    ){
+
+        narrar(
+            "The Dealer busted."
+        );
+
+        setTimeout(
+            finalizarRodada,
+            700
+        );
+
+        return;
+
+    }
+
+    if(
+        dealer.pontuacao>=17
+    ){
+
+        narrar(
+            "The Dealer stands."
+        );
+
+        setTimeout(
+            finalizarRodada,
+            700
+        );
+
+    }
+
+    else{
+
+        narrar(
+            "The Dealer needs another card."
+        );
+
+    }
+
+}
+
+
+/* =========================
+   AUTO DEALER
+========================= */
+
+function dealerAutomatico(){
+
+    if(
+        fase!=="dealer"
+    ){
+
+        alert(
+            "⏳ It's not the Dealer's turn yet."
+        );
+
+        return;
+
+    }
+
+    revelarDealer();
+
+    function comprar(){
+
+        if(
+            fase!=="dealer"
+        ){
+
+            return;
+
+        }
+
+        if(
+            dealer.pontuacao>=17
+        ){
+
+            narrar(
+                "The Dealer stands."
+            );
+
+            setTimeout(
+                finalizarRodada,
+                900
+            );
+
+            return;
+
+        }
+
+        const carta=
+            pegarCarta();
+
+        dealer.cartas.push(carta);
+
+        dealer.pontuacao=
+            calcularPontos(
+                dealer.cartas
+            );
+
+        const area=
+            document.getElementById(
+                "cartasDealer"
+            );
+
+        area.innerHTML=
+
+            dealer.cartas
+                .map(
+                    cartaAtual =>
+                        htmlCarta(cartaAtual)
+                )
+                .join("");
+
+        const novaCarta=
+            area.lastElementChild;
+
+        if(novaCarta){
+
+            novaCarta.classList.add(
+                "carta-animada"
+            );
+
+        }
+
+        atualizarPontuacaoDealer();
+
+        if(
+            dealer.pontuacao>21
+        ){
+
+            narrar(
+                "The Dealer busted!"
+            );
+
+            setTimeout(
+                finalizarRodada,
+                1000
+            );
+
+            return;
+
+        }
+
+        setTimeout(
+            comprar,
+            900
+        );
+
+    }
+
+    comprar();
+
+}
+
+
+/* =========================
+   LIVES
+========================= */
+
+function ganharVida(numero){
+
+    const j=
+        jogadores[numero];
+
+    if(
+        j.vidas<MAX_VIDAS
+    ){
+
+        j.vidas++;
+
+    }
+
+    if(
+        j.vidas>MAX_VIDAS
+    ){
+
+        j.vidas=MAX_VIDAS;
+
+    }
+
+    atualizarJogador(numero);
+
+}
+
+
+function perderVida(numero){
+
+    const j=
+        jogadores[numero];
+
+    if(
+        j.vidas>0
+    ){
+
+        j.vidas--;
+
+    }
+
+    atualizarJogador(numero);
+
+    if(
+        j.vidas<=0
+    ){
+
+        j.vidas=0;
+
+        j.parou=true;
+
+        atualizarJogador(numero);
+
+        setTimeout(()=>{
+
+            animarExplosaoVidas();
+
+        },150);
+
+        document.getElementById(
+            "status"+numero
+        ).innerHTML=
+            "💀 ELIMINATED";
+
+        document.getElementById(
+            "box"+numero
+        ).classList.add(
+            "eliminado"
+        );
+
+        atualizarJogador(numero);
+
+        evento(
+
+            "💀 "+
+            j.nome+
+            " was eliminated."
+
+        );
+
+        setTimeout(()=>{
+
+            mostrarEliminacao(
+                j.nome
+            );
+
+        },1900);
+
+    }
+
+}
+
+
+/* =========================
+   ELIMINATION
+========================= */
+
+function mostrarEliminacao(nome){
+
+    mostrarMensagemMesa(
+
+        "💀<br>"+
+        "<b>"+
+        nome.toUpperCase()+
+        "</b><br>"+
+        "WAS ELIMINATED!",
+
+        4000
+
+    );
+
+    setTimeout(()=>{
+
+        mostrarMensagemMesa(
+
+            "❤️ THANK YOU FOR PLAYING!<br>"+
+            "FOLLOW THE CHANNEL<br>"+
+            "👍 LEAVE A LIKE!",
+
+            4500
+
+        );
+
+    },4350);
+
+    setTimeout(()=>{
+
+        mostrarMensagemMesa(
+
+            "👋 SEE YOU NEXT TIME!<br>"+
+            "❤️ THANK YOU FOR JOINING THE LIVE!",
+
+            4500
+
+        );
+
+    },9200);
+
+}
+
+
+/* =========================
+   ROUND END
+========================= */
+
+function finalizarRodada(){
+
+    if(finalizandoRodada){
+        return;
+    }
+
+    finalizandoRodada=true;
+
+    fase="result";
+    turnoAtual=null;
+
+    dealer.revelado=true;
+
+    atualizarDealerTela();
+
+    document.getElementById(
+        "areaDealer"
+    ).classList.remove(
+        "vezDealer"
+    );
+
+    document.querySelectorAll(
+        ".jogador"
+    ).forEach(
+
+        el =>
+            el.classList.remove(
+                "vez"
+            )
+
+    );
+
+    const resultados=[];
+
+    for(
+        const numero of [1,2]
+    ){
+
+        const j=
+            jogadores[numero];
+
+        if(
+            !j.ocupado ||
+            j.vidas<=0
+        ){
+
+            continue;
+
+        }
+
+        if(
+            j.pontuacao>21
+        ){
+
+            document.getElementById(
+                "resultado"+numero
+            ).innerHTML=
+                "💥 BUSTED • LOSS";
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "💥 LOSS";
+
+            animarResultado(
+                numero,
+                "derrota"
+            );
+
+            resultados.push(
+                j.nome+
+                " lost because they busted."
+            );
+
+            continue;
+
+        }
+
+        if(
+            dealer.pontuacao>21
+        ){
+
+            ganharVida(numero);
+
+            document.getElementById(
+                "resultado"+numero
+            ).innerHTML=
+                "🏆 WIN! +❤️";
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "🏆 WIN";
+
+            animarResultado(
+                numero,
+                "vitoria"
+            );
+
+            resultados.push(
+                j.nome+
+                " won! The Dealer busted."
+            );
+
+            continue;
+
+        }
+
+        if(
+            j.blackjack &&
+            dealer.pontuacao!==21
+        ){
+
+            ganharVida(numero);
+
+            document.getElementById(
+                "resultado"+numero
+            ).innerHTML=
+                "🃏 BLACKJACK! 🏆";
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "🃏 BLACKJACK";
+
+            animarResultado(
+                numero,
+                "blackjack"
+            );
+
+            resultados.push(
+                j.nome+
+                " won with Blackjack!"
+            );
+
+            continue;
+
+        }
+
+        if(
+            j.pontuacao>
+            dealer.pontuacao
+        ){
+
+            ganharVida(numero);
+
+            document.getElementById(
+                "resultado"+numero
+            ).innerHTML=
+                "🏆 WIN! +❤️";
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "🏆 WIN";
+
+            animarResultado(
+                numero,
+                "vitoria"
+            );
+
+            resultados.push(
+                j.nome+
+                " won."
+            );
+
+        }
+
+        else if(
+            j.pontuacao===
+            dealer.pontuacao
+        ){
+
+            document.getElementById(
+                "resultado"+numero
+            ).innerHTML=
+                "🤝 PUSH";
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "🤝 PUSH";
+
+            animarResultado(
+                numero,
+                "empate"
+            );
+
+            resultados.push(
+                j.nome+
+                " pushed."
+            );
+
+        }
+
+        else{
+
+            perderVida(numero);
+
+            if(
+                jogadores[numero].vidas>0
+            ){
+
+                document.getElementById(
+                    "resultado"+numero
+                ).innerHTML=
+                    "❌ LOSS • -❤️";
+
+                document.getElementById(
+                    "status"+numero
+                ).innerHTML=
+                    "❌ LOSS";
+
+                animarResultado(
+                    numero,
+                    "derrota"
+                );
+
+            }
+
+            resultados.push(
+                j.nome+
+                " lost to the Dealer."
+            );
+
+        }
+
+    }
+
+    for(
+        const texto of resultados
+    ){
+
+        evento(
+            "🎲 "+texto
+        );
+
+    }
+
+    narrar(
+        "Round over."
+    );
+
+    document.getElementById(
+        "statusMesa"
+    ).innerHTML=
+        "🏁 ROUND OVER";
+
+    setTimeout(()=>{
+
+        fase="end";
+
+        finalizandoRodada=false;
+
+        document.getElementById(
+            "statusMesa"
+        ).innerHTML=
+            "🟢 READY FOR NEW ROUND";
+
+        narrar(
+            "The round has ended."
+        );
+
+        verificarEliminados();
+
+    },3700);
+
+}
+
+
+/* =========================
+   ELIMINATED
+========================= */
+
+function verificarEliminados(){
+
+    for(
+        const numero of [1,2]
+    ){
+
+        const j=
+            jogadores[numero];
+
+        if(
+            j.ocupado &&
+            j.vidas<=0
+        ){
+
+            document.getElementById(
+                "status"+numero
+            ).innerHTML=
+                "💀 ELIMINATED";
+
+        }
+
+    }
+
+}
+
+
+/* =========================
+   REMOVE
+========================= */
+
+function remover(numero){
+
+    const j=
+        jogadores[numero];
+
+    if(!j.ocupado){
+        return;
+    }
+
+    const nome=j.nome;
+
+    if(
+        turnoAtual===numero
+    ){
+
+        turnoAtual=null;
+
+    }
+
+    jogadores[numero]={
+
+        nome:"",
+        ocupado:false,
+        vidas:MAX_VIDAS,
+        cartas:[],
+        pontuacao:0,
+        parou:false,
+        blackjack:false
+
+    };
+
+    ordemTurnos=
+        ordemTurnos.filter(
+            n =>
+                n!==numero
+        );
+
+    document.getElementById(
+        "titulo"+numero
+    ).innerHTML=
+        "👤 SEAT "+numero;
+
+    document.getElementById(
+        "status"+numero
+    ).innerHTML=
+        "⚪ OPEN";
+
+    document.getElementById(
+        "vidas"+numero
+    ).innerHTML=
+        htmlVidas(MAX_VIDAS);
+
+    document.getElementById(
+        "pontuacao"+numero
+    ).innerHTML=
+        "0 points";
+
+    document.getElementById(
+        "contador"+numero
+    ).innerHTML=
+        "🃏 0 cards";
+
+    document.getElementById(
+        "cartas"+numero
+    ).innerHTML="";
+
+    document.getElementById(
+        "resultado"+numero
+    ).innerHTML="";
+
+    document.getElementById(
+        "box"+numero
+    ).classList.remove(
+        "vez",
+        "eliminado",
+        "resultado-vitoria",
+        "resultado-derrota",
+        "resultado-empate",
+        "resultado-blackjack"
+    );
+
+    narrar(
+        nome+
+        " left the table."
+    );
+
+    evento(
+        "❌ "+
+        nome+
+        " was removed from the table."
+    );
+
+}
+
+
+/* =========================
+   BLACKJACK
+========================= */
+
+function mostrarBlackjack(
+    nome,
+    pontos=21
+){
+
+    const overlay=
+        document.getElementById(
+            "blackjackOverlay"
+        );
+
+    document.getElementById(
+        "blackjackTexto"
+    ).innerHTML=
+        "🃏 BLACKJACK!";
+
+    document.getElementById(
+        "blackjackSub"
+    ).innerHTML=
+        "👤 "+
+        nome+
+        " • "+
+        pontos+
+        " POINTS";
+
+    overlay.classList.remove(
+        "mostrar"
+    );
+
+    void overlay.offsetWidth;
+
+    overlay.classList.add(
+        "mostrar"
+    );
+
+}
+
+
+/* =========================
+   KEYBOARD
+========================= */
+
+document.addEventListener(
+    "keydown",
+    function(e){
+
+        if(
+            e.key!=="1" &&
+            e.key!=="2"
+        ){
+
+            return;
+
+        }
+
+        if(
+            turnoAtual===null
+        ){
+
+            return;
+
+        }
+
+        if(
+            e.key==="1"
+        ){
+
+            cartaJogador(
+                turnoAtual
+            );
+
+        }
+
+        if(
+            e.key==="2"
+        ){
+
+            parar(
+                turnoAtual
+            );
+
+        }
+
+    }
+);
+
+
+/* =========================
+   ENTER
+========================= */
+
+document
+    .getElementById(
+        "nomeEntrada"
+    )
+    .addEventListener(
+        "keydown",
+        function(e){
+
+            if(
+                e.key==="Enter"
+            ){
+
+                entrar();
+
+            }
+
+        }
+    );
+
+
+/* =========================
+   START
+========================= */
+
+criarBaralho();
+
+atualizarPontuacaoDealer();
+
+atualizarBotaoTelaCheia();
+
+/* ============================================================
+   🆕 ADIÇÃO: INTEGRAÇÃO COM O SERVIDOR (SSE)
+   ============================================================ */
+
 // ============================================================
-// CLIENTE SSE COM ANIMAÇÕES DE VIDA COMPLETO
+// CLIENTE SSE - RECEBE ATUALIZAÇÕES DO SERVIDOR
 // ============================================================
 
-// ===== CONEXÃO SSE =====
+console.log('🔄 Conectando ao servidor via SSE...');
+
 const eventSource = new EventSource('/events');
-let gameState = {
-  phase: 'waiting',
+
+// Estado recebido do servidor
+let serverGameState = {
   players: [],
   dealerHand: [],
   dealerScore: 0,
-  currentTurn: null,
-  maxPlayers: 2,
-  messages: []
+  phase: 'waiting',
+  currentTurn: null
 };
 
-// ===== CONTROLE DE ANIMAÇÕES =====
-let ultimoEstadoVidas = {};
+// Controle de vidas para animações
+let vidasAnteriores = {};
+
+// ============================================================
+// RECEBE EVENTOS DO SERVIDOR
+// ============================================================
 
 eventSource.onmessage = function(event) {
-  const data = JSON.parse(event.data);
-  if (data.type === 'state') {
-    const novoEstado = data.data;
-    // Verifica mudanças nas vidas ANTES de atualizar
-    verificarMudancasVidas(novoEstado);
-    gameState = novoEstado;
-    atualizarInterface(gameState);
-  } else if (data.type === 'message') {
-    adicionarHistorico(data.data);
-    narrar(data.data);
+  try {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'state') {
+      const novoEstado = data.data;
+      
+      // Verifica mudanças nas vidas
+      verificarMudancasVidas(novoEstado);
+      
+      // Atualiza o estado do servidor
+      serverGameState = novoEstado;
+      
+      // 🔥 ATUALIZA A INTERFACE COM OS DADOS DO SERVIDOR
+      atualizarInterfaceServidor(novoEstado);
+      
+    } else if (data.type === 'message') {
+      // Mensagens do servidor aparecem na narração e histórico
+      narrar(data.data);
+      evento(data.data);
+    }
+  } catch (e) {
+    console.error('Erro ao processar evento SSE:', e);
   }
 };
 
 eventSource.onerror = function() {
   console.log('⚠️ SSE desconectado. Tentando reconectar...');
+  // O navegador reconecta automaticamente
 };
 
 // ============================================================
-// FUNÇÃO: VERIFICAR MUDANÇAS NAS VIDAS
+// VERIFICA MUDANÇAS NAS VIDAS (para animações)
 // ============================================================
 
 function verificarMudancasVidas(novoEstado) {
-  // Para cada jogador no novo estado
   for (const player of novoEstado.players) {
     const id = player.id;
     const vidasAtuais = player.lives;
+    const vidasAntes = vidasAnteriores[id] || vidasAtuais;
 
-    // Se não tinha registro anterior, cria
-    if (!ultimoEstadoVidas[id]) {
-      ultimoEstadoVidas[id] = vidasAtuais;
-      continue;
-    }
-
-    const vidasAnteriores = ultimoEstadoVidas[id];
-
-    // Se perdeu vida (diminuiu)
-    if (vidasAtuais < vidasAnteriores) {
-      console.log(`💔 @${player.nickname} perdeu uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
-      animarPerdaVida(player.nickname);
-
-      // Se perdeu todas as vidas
+    if (vidasAtuais < vidasAntes) {
+      // Perdeu vida → animação de perda
+      mostrarMensagemMesa(`💔 @${player.nickname} PERDEU UMA VIDA!`, 2000);
+      
       if (vidasAtuais <= 0) {
-        console.log(`💀 @${player.nickname} foi ELIMINADO!`);
-        animarExplosaoVidas();
-        mostrarMensagemMesa(`💀 @${player.nickname} FOI ELIMINADO!`, 4000);
+        // Eliminado → explosão de corações
+        setTimeout(() => {
+          animarExplosaoVidas();
+          mostrarMensagemMesa(`💀 @${player.nickname} FOI ELIMINADO!`, 4000);
+        }, 300);
       }
+    } else if (vidasAtuais > vidasAntes) {
+      // Ganhou vida
+      mostrarMensagemMesa(`❤️ @${player.nickname} GANHOU UMA VIDA!`, 2000);
     }
 
-    // Se ganhou vida (aumentou)
-    if (vidasAtuais > vidasAnteriores) {
-      console.log(`❤️ @${player.nickname} ganhou uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
-      animarGanhoVida(player.nickname);
-    }
-
-    // Atualiza o registro
-    ultimoEstadoVidas[id] = vidasAtuais;
+    vidasAnteriores[id] = vidasAtuais;
   }
 
   // Remove jogadores que saíram
   const idsAtivos = novoEstado.players.map(p => p.id);
-  for (const id of Object.keys(ultimoEstadoVidas)) {
+  for (const id of Object.keys(vidasAnteriores)) {
     if (!idsAtivos.includes(id)) {
-      delete ultimoEstadoVidas[id];
+      delete vidasAnteriores[id];
     }
   }
 }
 
 // ============================================================
-// ANIMAÇÕES
+// ATUALIZA INTERFACE COM DADOS DO SERVIDOR
 // ============================================================
 
-function animarPerdaVida(nickname) {
-  mostrarMensagemMesa(`💔 @${nickname} PERDEU UMA VIDA!`, 2000);
-}
-
-function animarGanhoVida(nickname) {
-  mostrarMensagemMesa(`❤️ @${nickname} GANHOU UMA VIDA!`, 2000);
-}
-
-function animarExplosaoVidas() {
-  const explosao = document.getElementById('explosaoVidas');
-  explosao.classList.remove('mostrar');
-  void explosao.offsetWidth;
-  explosao.classList.add('mostrar');
-  setTimeout(() => {
-    explosao.classList.remove('mostrar');
-  }, 1900);
-}
-
-// ============================================================
-// FUNÇÃO: ATUALIZAR INTERFACE
-// ============================================================
-
-function atualizarInterface(game) {
-  // Atualiza status da mesa
+function atualizarInterfaceServidor(game) {
+  // 1. Status da mesa
   const statusMap = {
     'waiting': '🟢 WAITING FOR PLAYERS',
     'dealing': '🃏 DEALING CARDS...',
@@ -2438,10 +5095,15 @@ function atualizarInterface(game) {
   };
   document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase.toUpperCase();
 
-  // Atualiza dealer
+  // 2. Dealer
   const dealerArea = document.getElementById('cartasDealer');
-  dealerArea.innerHTML = game.dealerHand.map(c => htmlCarta(c)).join('');
+  if (game.dealerHand && game.dealerHand.length > 0) {
+    dealerArea.innerHTML = game.dealerHand.map(c => htmlCartaServidor(c)).join('');
+  } else {
+    dealerArea.innerHTML = '';
+  }
   document.getElementById('pontuacaoDealer').innerHTML = game.dealerScore + ' points';
+
   if (game.phase === 'dealer') {
     document.getElementById('dealerStatus').innerHTML = '🟡 DEALER\'S TURN';
     document.getElementById('dealerStatus').classList.add('ativo');
@@ -2452,7 +5114,7 @@ function atualizarInterface(game) {
     document.getElementById('areaDealer').classList.remove('vezDealer');
   }
 
-  // Atualiza jogadores (2 vagas fixas)
+  // 3. Jogadores (até 2)
   const seats = [1, 2];
   seats.forEach((seat, index) => {
     const player = game.players[index];
@@ -2466,30 +5128,38 @@ function atualizarInterface(game) {
     const resultado = document.getElementById('resultado' + seat);
 
     if (player) {
+      // Dados do jogador
       titulo.innerHTML = '👤 ' + player.nickname;
       vidas.innerHTML = htmlVidas(player.lives);
       pontuacao.innerHTML = player.score + ' points';
       contador.innerHTML = '🃏 ' + player.hand.length + ' cards';
-      cartas.innerHTML = player.hand.map(c => htmlCarta(c)).join('');
-
-      if (player.lives > 0) {
-        box.classList.remove('eliminado');
+      
+      // Cartas
+      if (player.hand && player.hand.length > 0) {
+        cartas.innerHTML = player.hand.map(c => htmlCartaServidor(c)).join('');
       } else {
-        box.classList.add('eliminado');
+        cartas.innerHTML = '';
       }
 
-      if (player.busted) {
-        status.innerHTML = '💥 BUSTED';
-        resultado.innerHTML = '💀 LOST!';
-      } else if (player.stand) {
-        status.innerHTML = '🛑 STAND';
-        resultado.innerHTML = '✅ ' + player.score + ' pts';
-      } else if (game.currentTurn === player.id && game.phase === 'players') {
-        status.innerHTML = '🔵 YOUR TURN';
-        box.classList.add('vez');
+      // Status
+      if (player.lives <= 0) {
+        box.classList.add('eliminado');
+        status.innerHTML = '💀 ELIMINATED';
       } else {
-        status.innerHTML = '🟡 WAITING';
-        box.classList.remove('vez');
+        box.classList.remove('eliminado');
+        if (player.busted) {
+          status.innerHTML = '💥 BUSTED';
+          resultado.innerHTML = '💀 LOST!';
+        } else if (player.stand) {
+          status.innerHTML = '🛑 STAND';
+          resultado.innerHTML = '✅ ' + player.score + ' pts';
+        } else if (game.currentTurn === player.id && game.phase === 'players') {
+          status.innerHTML = '🔵 YOUR TURN';
+          box.classList.add('vez');
+        } else {
+          status.innerHTML = '🟡 WAITING';
+          box.classList.remove('vez');
+        }
       }
 
       if (player.blackjack) {
@@ -2499,6 +5169,7 @@ function atualizarInterface(game) {
       }
 
     } else {
+      // Assento vazio
       titulo.innerHTML = '👤 SEAT ' + seat;
       status.innerHTML = '⚪ OPEN';
       vidas.innerHTML = htmlVidas(3);
@@ -2512,178 +5183,95 @@ function atualizarInterface(game) {
 }
 
 // ============================================================
-// FUNÇÕES AUXILIARES
+// FUNÇÕES AUXILIARES PARA CARTAS DO SERVIDOR
 // ============================================================
 
-function htmlCarta(carta) {
+function htmlCartaServidor(carta) {
+  // Carta pode vir como objeto { value, suit } ou string "A♥️"
+  if (typeof carta === 'string') {
+    // Tenta extrair valor e naipe
+    const suitMap = { '♥': '♥️', '♦': '♦️', '♣': '♣️', '♠': '♠️' };
+    const value = carta.replace(/[♥♦♣♠]/g, '');
+    const suit = carta.replace(/[^♥♦♣♠]/g, '');
+    return `<span class="carta">${value}<span class="naipe">${suitMap[suit] || suit}</span></span>`;
+  }
   return `<span class="carta">${carta.value}<span class="naipe">${carta.suit}</span></span>`;
 }
 
-function htmlVidas(vidas) {
-  let html = '';
-  for (let i = 0; i < 3; i++) {
-    html += i < vidas ? '❤️' : '🖤';
-  }
-  return html;
-}
-
-function narrar(texto) {
-  document.getElementById('narracaoTexto').innerHTML = '🎙️ ' + texto;
-}
-
-function adicionarHistorico(texto) {
-  const div = document.createElement('div');
-  div.className = 'evento';
-  div.innerHTML = texto;
-  document.getElementById('historico').prepend(div);
-}
-
-function mostrarBlackjack(nome, pontos) {
-  const overlay = document.getElementById('blackjackOverlay');
-  document.getElementById('blackjackTexto').innerHTML = '🃏 BLACKJACK!';
-  document.getElementById('blackjackSub').innerHTML = '👤 ' + nome + ' • ' + pontos + ' POINTS';
-  overlay.classList.remove('mostrar');
-  void overlay.offsetWidth;
-  overlay.classList.add('mostrar');
-  setTimeout(() => overlay.classList.remove('mostrar'), 2000);
-}
-
 // ============================================================
-// MENSAGENS DA MESA
+// SUBSTITUI AS FUNÇÕES ORIGINAIS PARA USAR O SERVIDOR
 // ============================================================
 
-let mensagemTimer = null;
-let mensagemFinalTimer = null;
+// Guarda as funções originais
+const _cartaJogadorOriginal = cartaJogador;
+const _pararOriginal = parar;
+const _entrarOriginal = entrar;
 
-function mostrarMensagemMesa(texto, duracao = 3500) {
-  const mensagem = document.getElementById('mensagemMesa');
-  const mesa = document.getElementById('mesa');
-  if (mensagemTimer) clearTimeout(mensagemTimer);
-  if (mensagemFinalTimer) clearTimeout(mensagemFinalTimer);
-  mensagem.classList.remove('mostrar', 'saindo');
-  mesa.classList.remove('falaAtiva');
-  mensagem.innerHTML = '';
-  void mensagem.offsetWidth;
-  mensagem.innerHTML = texto;
-  mesa.classList.add('falaAtiva');
-  mensagem.classList.add('mostrar');
-  mensagemTimer = setTimeout(() => {
-    mensagem.classList.remove('mostrar');
-    mensagem.classList.add('saindo');
-    mensagemFinalTimer = setTimeout(() => {
-      mensagem.classList.remove('saindo');
-      mensagem.innerHTML = '';
-      mesa.classList.remove('falaAtiva');
-      mensagemTimer = null;
-      mensagemFinalTimer = null;
-    }, 300);
-  }, duracao);
-}
-
-// ============================================================
-// BOTÕES DO FRONTEND
-// ============================================================
-
-function cartaJogador(seat) {
-  const player = gameState.players[seat - 1];
+// Substitui para enviar comandos ao servidor
+cartaJogador = function(numero) {
+  const player = serverGameState.players[numero - 1];
   if (!player) {
     alert('Nenhum jogador nessa posição.');
     return;
   }
-  if (gameState.currentTurn !== player.id) {
+  if (serverGameState.currentTurn !== player.id) {
     alert('⏳ Não é a vez deste jogador.');
     return;
   }
+  
   fetch('/game-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'hit', userId: player.id })
   }).catch(err => console.error('Erro no HIT:', err));
-}
+};
 
-function parar(seat) {
-  const player = gameState.players[seat - 1];
+parar = function(numero) {
+  const player = serverGameState.players[numero - 1];
   if (!player) {
     alert('Nenhum jogador nessa posição.');
     return;
   }
-  if (gameState.currentTurn !== player.id) {
+  if (serverGameState.currentTurn !== player.id) {
     alert('⏳ Não é a vez deste jogador.');
     return;
   }
+  
   fetch('/game-state', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ action: 'stand', userId: player.id })
   }).catch(err => console.error('Erro no STAND:', err));
-}
+};
 
-function remover(seat) {
-  alert('Para remover um jogador, recarregue a página.');
-  location.reload();
-}
-
-function entrar() {
+// O JOIN agora avisa para usar o TikTok
+entrar = function() {
   const input = document.getElementById('nomeEntrada');
   const nome = input.value.trim();
   if (!nome) {
     alert('Digite um nome para teste local.');
     return;
   }
-  alert('Para entrar, use o comando BLACKJACK no chat do TikTok.');
+  alert('Para entrar na mesa, use o comando BLACKJACK no chat do TikTok.');
   input.value = '';
-}
+};
 
-// ============================================================
-// NARRAÇÃO (botões)
-// ============================================================
+// Botões do dealer ficam com alerta informativo
+cartaDealer = function() {
+  alert('O dealer é controlado pelo bot automaticamente.');
+};
+revelarDealer = function() {
+  alert('O dealer é controlado pelo bot automaticamente.');
+};
+dealerAutomatico = function() {
+  alert('O dealer é controlado pelo bot automaticamente.');
+};
+novaRodada = function() {
+  alert('As rodadas são iniciadas automaticamente pelo bot.');
+};
 
-function mensagemJogador() { mostrarMensagemMesa('🃏 HIT OR STAND?'); }
-function mensagemComandos() { mostrarMensagemMesa('WHEN IT\'S YOUR TURN, USE THE CHAT:<br>1️⃣ HIT → GET ANOTHER CARD.<br>2️⃣ STAND → STOP AND KEEP YOUR HAND.', 5000); }
-function mensagemLike() { mostrarMensagemMesa('❤️ LEAVE A LIKE!<br>I HOPE YOU\'RE ENJOYING THE LIVE.'); }
-function mensagemMeta() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>US$ 15'); }
-function mensagemRosas() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>200 🌹'); }
-function mensagemVagas() { mostrarMensagemMesa('OPEN SEATS!<br>TYPE <b>BLACKJACK</b><br>IN THE CHAT TO JOIN.'); }
-function mensagemAgradecimento() { mostrarMensagemMesa('❤️ THANK YOU SO MUCH<br>TO EVERYONE WATCHING!'); }
-function mensagemObrigado() { mostrarMensagemMesa('❤️ THANK YOU<br>FOR HELPING WITH THE GOAL ❤'); }
-
-// Botões do dealer
-function cartaDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
-function revelarDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
-function dealerAutomatico() { alert('O dealer é controlado pelo bot automaticamente.'); }
-function novaRodada() { alert('As rodadas são iniciadas automaticamente pelo bot.'); }
-
-// ============================================================
-// FULLSCREEN
-// ============================================================
-
-function alternarTelaCheia() {
-  if (!document.fullscreenElement) {
-    document.documentElement.requestFullscreen();
-  } else {
-    document.exitFullscreen();
-  }
-}
-
-document.addEventListener('fullscreenchange', () => {
-  document.body.classList.toggle('fullscreen-active', !!document.fullscreenElement);
-});
-document.addEventListener('webkitfullscreenchange', () => {
-  document.body.classList.toggle('fullscreen-active', !!document.webkitFullscreenElement);
-});
-
-// ============================================================
-// INICIALIZAÇÃO
-// ============================================================
-
-console.log('🃏 Blackjack Live - Cliente SSE com ANIMAÇÕES DE VIDA');
-console.log('📡 Conectado ao servidor.');
-
-setTimeout(() => {
-  if (gameState.players.length === 0) {
-    document.getElementById('statusMesa').innerHTML = '🟢 WAITING FOR PLAYERS';
-  }
-}, 1000);
+console.log('✅ Integração com servidor ativada!');
+console.log('📡 Aguardando eventos do servidor...');
 
 </script>
 
