@@ -1,35 +1,47 @@
-const { TikTokLiveConnection, ControlEvent } = require('tiktok-live-connector');
+import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
 
-const USERNAME = process.env.TIKTOK_USERNAME || 'SEU_USUARIO';
+const USERNAME = process.env.TIKTOK_USERNAME;
 
-const connection = new TikTokLiveConnection(USERNAME);
+if (!USERNAME) {
+  console.error('❌ TIKTOK_USERNAME não foi configurado.');
+  process.exit(1);
+}
+
+console.log('🤖 Blackjack TikTok Bot iniciando...');
+console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
+
+const connection = new TikTokLiveConnection(USERNAME, {
+  processInitialData: false
+});
 
 const players = new Map();
 
 let currentPlayer = null;
 
-console.log('🤖 Blackjack TikTok Bot iniciando...');
-console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
-
+// CONECTAR
 connection.connect()
-  .then(() => {
+  .then((state) => {
     console.log('🟢 Conectado à TikTok LIVE!');
+    console.log(`🎥 Room ID: ${state.roomId}`);
   })
   .catch((err) => {
-    console.error('❌ Não foi possível conectar à LIVE:', err);
+    console.error('❌ Não foi possível conectar à LIVE:');
+    console.error(err);
   });
 
-connection.on('chat', (data) => {
-  const username = data.uniqueId;
+// CHAT
+connection.on(WebcastEvent.CHAT, (data) => {
+  const username = data.user.uniqueId;
   const message = data.comment.trim().toUpperCase();
 
   console.log(`💬 @${username}: ${message}`);
 
-  // BLACKJACK = entrar na mesa
+  // BLACKJACK = ENTRAR
   if (message === 'BLACKJACK') {
+
     if (!players.has(username)) {
       players.set(username, {
-        username,
+        username: username,
         lives: 3,
         playing: true
       });
@@ -42,13 +54,14 @@ connection.on('chat', (data) => {
     return;
   }
 
-  // Se não estiver jogando, ignora 1 e 2
+  // IGNORA SE NÃO ESTIVER NA MESA
   if (!players.has(username)) {
     return;
   }
 
   // HIT
   if (message === '1') {
+
     if (currentPlayer !== username) {
       console.log(`⏳ Não é a vez de @${username}.`);
       return;
@@ -56,12 +69,12 @@ connection.on('chat', (data) => {
 
     console.log(`🃏 @${username} pediu carta!`);
 
-    // Aqui vamos conectar ao Blackjack Live
     return;
   }
 
   // STAND
   if (message === '2') {
+
     if (currentPlayer !== username) {
       console.log(`⏳ Não é a vez de @${username}.`);
       return;
@@ -69,27 +82,26 @@ connection.on('chat', (data) => {
 
     console.log(`🛑 @${username} parou!`);
 
-    // Aqui vamos conectar ao Blackjack Live
     return;
   }
 });
 
-connection.on('member', (data) => {
-  console.log(`👤 Novo membro: @${data.uniqueId}`);
+// NOVO MEMBRO
+connection.on(WebcastEvent.MEMBER, (data) => {
+  console.log(`👤 @${data.user.uniqueId} entrou na LIVE.`);
 });
 
-connection.on('like', (data) => {
-  console.log(`❤️ @${data.uniqueId} curtiu a LIVE!`);
+// PRESENTE
+connection.on(WebcastEvent.GIFT, (data) => {
+  console.log(`🎁 @${data.user.uniqueId} enviou um presente.`);
 });
 
-connection.on('gift', (data) => {
-  console.log(`🎁 @${data.uniqueId} enviou um presente!`);
+// LIKE
+connection.on(WebcastEvent.LIKE, (data) => {
+  console.log(`❤️ @${data.user.uniqueId} curtiu a LIVE.`);
 });
 
-connection.on('disconnected', () => {
+// DESCONEXÃO
+connection.on(WebcastEvent.DISCONNECT, () => {
   console.log('🔴 Bot desconectado da TikTok LIVE.');
-});
-
-connection.on('error', (err) => {
-  console.error('❌ Erro:', err);
 });
