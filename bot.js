@@ -30,11 +30,11 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // =====================================================
-// ESTADO DO JOGO (fonte única da verdade)
+// ESTADO DO JOGO
 // =====================================================
 
 const game = {
-  phase: 'waiting',
+  phase: 'waiting', // waiting | dealing | players | dealer | result
   players: [],
   dealerHand: [],
   dealerScore: 0,
@@ -43,7 +43,10 @@ const game = {
   messages: [],
 };
 
-// Baralho e funções auxiliares
+// =====================================================
+// BARALHO
+// =====================================================
+
 function createDeck() {
   const suits = ['♥️', '♦️', '♣️', '♠️'];
   const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
@@ -109,6 +112,7 @@ function addPlayer(userId, nickname) {
     broadcastMessage(`⏳ Jogo em andamento, @${nickname}. Aguarde a próxima rodada.`);
     return false;
   }
+
   game.players.push({
     id: userId,
     nickname: nickname,
@@ -119,9 +123,20 @@ function addPlayer(userId, nickname) {
     busted: false,
     blackjack: false,
   });
+
   broadcastMessage(`🃏 @${nickname} entrou na mesa! (${game.players.length}/${game.maxPlayers})`);
   broadcastState();
-  
+
+  // 🚀 NOVO: Começa com 1 jogador também
+  if (game.players.length === 1) {
+    setTimeout(() => {
+      if (game.phase === 'waiting' || game.phase === 'result') {
+        broadcastMessage('🎯 Apenas um jogador? Vamos começar!');
+        startRound();
+      }
+    }, 3000);
+  }
+
   if (game.players.length === game.maxPlayers) {
     setTimeout(startRound, 1500);
   }
@@ -158,6 +173,7 @@ function startRound() {
     p.blackjack = false;
   }
 
+  // Distribui 2 cartas para cada jogador
   for (let i = 0; i < 2; i++) {
     for (const p of game.players) {
       p.hand.push(drawCard());
@@ -176,11 +192,21 @@ function startRound() {
 
   game.dealerScore = handScore(game.dealerHand);
   game.phase = 'players';
+
+  // Define o primeiro turno
   const firstPlayer = game.players.find(p => !p.stand && !p.busted);
   game.currentTurn = firstPlayer ? firstPlayer.id : null;
 
   broadcastState();
-  broadcastMessage(`🎯 Nova rodada! Vez de @${game.currentTurn ? game.players.find(p => p.id === game.currentTurn).nickname : 'ninguém'}`);
+
+  if (game.currentTurn) {
+    const currentPlayer = game.players.find(p => p.id === game.currentTurn);
+    broadcastMessage(`🎯 Nova rodada! Vez de @${currentPlayer.nickname}`);
+  } else {
+    broadcastMessage(`🎯 Nova rodada!`);
+    // Se todos já tiverem blackjack, vai direto pro dealer
+    checkRoundEnd();
+  }
 }
 
 function hitPlayer(userId) {
@@ -226,8 +252,11 @@ function standPlayer(userId) {
 }
 
 function checkRoundEnd() {
+  // Verifica se todos os jogadores pararam ou estouraram
   const allDone = game.players.every(p => p.stand || p.busted);
+
   if (!allDone) {
+    // Avança para o próximo jogador ativo
     const currentIndex = game.players.findIndex(p => p.id === game.currentTurn);
     let nextIndex = (currentIndex + 1) % game.players.length;
     let attempts = 0;
@@ -242,13 +271,16 @@ function checkRoundEnd() {
       nextIndex = (nextIndex + 1) % game.players.length;
       attempts++;
     }
+    // Se chegou aqui, ninguém mais pode jogar
   }
 
+  // ROUND END - Dealer joga
   game.phase = 'dealer';
   broadcastState();
   broadcastMessage('🎩 Vez do dealer...');
 
   setTimeout(() => {
+    // Dealer compra até 17
     while (game.dealerScore < 17) {
       game.dealerHand.push(drawCard());
       game.dealerScore = handScore(game.dealerHand);
@@ -256,6 +288,7 @@ function checkRoundEnd() {
 
     const dealerBusted = game.dealerScore > 21;
 
+    // Avalia resultados
     for (const p of game.players) {
       if (p.busted) continue;
       if (dealerBusted || p.score > game.dealerScore) {
@@ -272,10 +305,12 @@ function checkRoundEnd() {
       }
     }
 
+    // Remove eliminados
     game.players = game.players.filter(p => p.lives > 0);
     game.phase = 'result';
     broadcastState();
 
+    // Inicia nova rodada automaticamente
     setTimeout(() => {
       if (game.players.length > 0) {
         startRound();
@@ -354,7 +389,7 @@ app.get('/events', (req, res) => {
 });
 
 // =====================================================
-// TIKTOK LIVE - CHAT CORRIGIDO
+// TIKTOK LIVE
 // =====================================================
 
 console.log(`🤖 Blackjack TikTok Bot iniciando...`);
@@ -375,33 +410,25 @@ async function connectToLive() {
 }
 
 // =====================================================
-// CHAT - VERSÃO CORRIGIDA COM EXTRAÇÃO ROBUSTA
+// CHAT - VERSÃO CORRIGIDA
 // =====================================================
 
 connection.on(WebcastEvent.CHAT, (data) => {
-  // Extrai os dados de forma mais robusta
   const userId = data?.user?.id || data?.userId || null;
   const nickname = data?.user?.nickname || data?.user?.uniqueId || data?.nickname || 'anon';
   
-  // TENTA EXTRAIR O COMENTÁRIO DE VÁRIOS LUGARES
   let comment = null;
   
-  // 1. Campo mais comum
   if (data?.comment) comment = data.comment;
-  // 2. Campo alternativo
   else if (data?.text) comment = data.text;
-  // 3. Campo content
   else if (data?.content) comment = data.content;
-  // 4. Campo message
   else if (data?.message) comment = data.message;
-  // 5. Busca em qualquer campo de texto dentro do objeto
   else {
     const possibleTexts = [];
     const searchForText = (obj, path = '') => {
       if (!obj || typeof obj !== 'object') return;
       for (const [key, value] of Object.entries(obj)) {
         if (typeof value === 'string' && value.length > 0 && value.length < 500) {
-          // Ignora valores que parecem IDs, URLs ou datas
           if (!value.match(/^\d+$/) && !value.startsWith('http') && !value.includes('2026')) {
             possibleTexts.push({ path: `${path}.${key}`, value });
           }
@@ -411,9 +438,7 @@ connection.on(WebcastEvent.CHAT, (data) => {
       }
     };
     searchForText(data);
-    // Pega o primeiro texto que parecer um comentário
     if (possibleTexts.length > 0) {
-      // Prioriza campos que parecem conter comentários
       const priorityPaths = ['comment', 'text', 'content', 'message', 'describe'];
       for (const priority of priorityPaths) {
         const found = possibleTexts.find(p => p.path.includes(priority));
@@ -428,24 +453,16 @@ connection.on(WebcastEvent.CHAT, (data) => {
     }
   }
 
-  // Se não encontrou comentário, ignora
   if (!comment || comment.trim() === '') {
     console.log(`⚠️ Comentário vazio ou não encontrado para @${nickname}`);
-    // Mostra a estrutura para debug (apenas primeiro nível)
-    console.log('📦 Campos recebidos:', Object.keys(data).join(', '));
-    if (data?.user) {
-      console.log('👤 Campos do user:', Object.keys(data.user).join(', '));
-    }
     return;
   }
 
   const message = comment.trim().toUpperCase();
   console.log(`💬 @${nickname} (${userId || 'sem ID'}): ${message}`);
 
-  // Se não tem userId, tenta pegar de outro lugar
   const finalUserId = userId || data?.user?.uniqueId || data?.uniqueId || `user_${Date.now()}`;
 
-  // Comandos
   if (message === 'BLACKJACK') {
     addPlayer(finalUserId, nickname);
     return;
