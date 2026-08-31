@@ -386,4 +386,4 @@ server.listen(PORT, () => {
 });
 
 // Conectar ao TikTok (substitua pelo usuário)
-connectTikTok(theblackjackdealer);
+connectTikTok('theblackjackdealer');
