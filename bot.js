@@ -34,11 +34,11 @@ app.use(express.static(path.join(__dirname, 'public')));
 // =====================================================
 
 const game = {
-  phase: 'waiting', // waiting | dealing | players | dealer | result
-  players: [],      // { id, nickname, lives, hand, score, stand, busted, blackjack }
+  phase: 'waiting',
+  players: [],
   dealerHand: [],
   dealerScore: 0,
-  currentTurn: null, // id do jogador
+  currentTurn: null,
   maxPlayers: 2,
   messages: [],
 };
@@ -53,7 +53,6 @@ function createDeck() {
       deck.push({ value, suit });
     }
   }
-  // Embaralha
   for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [deck[i], deck[j]] = [deck[j], deck[i]];
@@ -123,7 +122,6 @@ function addPlayer(userId, nickname) {
   broadcastMessage(`🃏 @${nickname} entrou na mesa! (${game.players.length}/${game.maxPlayers})`);
   broadcastState();
   
-  // Se atingiu 2 jogadores, inicia automaticamente
   if (game.players.length === game.maxPlayers) {
     setTimeout(startRound, 1500);
   }
@@ -152,7 +150,6 @@ function startRound() {
   game.dealerHand = [];
   deck = createDeck();
 
-  // Reseta estado dos jogadores
   for (const p of game.players) {
     p.hand = [];
     p.score = 0;
@@ -161,17 +158,14 @@ function startRound() {
     p.blackjack = false;
   }
 
-  // Distribui 2 cartas para cada jogador
   for (let i = 0; i < 2; i++) {
     for (const p of game.players) {
       p.hand.push(drawCard());
     }
   }
 
-  // Dealer recebe 1 carta (a segunda será virada)
   game.dealerHand = [drawCard()];
 
-  // Calcula pontuações e verifica blackjack
   for (const p of game.players) {
     p.score = handScore(p.hand);
     if (p.score === 21 && p.hand.length === 2) {
@@ -181,8 +175,6 @@ function startRound() {
   }
 
   game.dealerScore = handScore(game.dealerHand);
-
-  // Define primeiro turno
   game.phase = 'players';
   const firstPlayer = game.players.find(p => !p.stand && !p.busted);
   game.currentTurn = firstPlayer ? firstPlayer.id : null;
@@ -206,7 +198,6 @@ function hitPlayer(userId) {
     broadcastMessage(`💥 @${player.nickname} estourou! Perdeu uma vida.`);
     if (player.lives <= 0) {
       broadcastMessage(`💀 @${player.nickname} foi eliminado!`);
-      // Remove da lista de jogadores ativos
       game.players = game.players.filter(p => p.id !== userId);
       if (game.currentTurn === userId) {
         const next = game.players.find(p => !p.stand && !p.busted);
@@ -235,10 +226,8 @@ function standPlayer(userId) {
 }
 
 function checkRoundEnd() {
-  // Verifica se todos os jogadores pararam ou estouraram
   const allDone = game.players.every(p => p.stand || p.busted);
   if (!allDone) {
-    // Avança para o próximo jogador ativo
     const currentIndex = game.players.findIndex(p => p.id === game.currentTurn);
     let nextIndex = (currentIndex + 1) % game.players.length;
     let attempts = 0;
@@ -253,15 +242,12 @@ function checkRoundEnd() {
       nextIndex = (nextIndex + 1) % game.players.length;
       attempts++;
     }
-    // Se chegou aqui, ninguém mais pode jogar
   }
 
-  // ROUND END - Dealer joga
   game.phase = 'dealer';
   broadcastState();
   broadcastMessage('🎩 Vez do dealer...');
 
-  // Dealer compra até 17
   setTimeout(() => {
     while (game.dealerScore < 17) {
       game.dealerHand.push(drawCard());
@@ -270,7 +256,6 @@ function checkRoundEnd() {
 
     const dealerBusted = game.dealerScore > 21;
 
-    // Avalia resultados
     for (const p of game.players) {
       if (p.busted) continue;
       if (dealerBusted || p.score > game.dealerScore) {
@@ -287,13 +272,10 @@ function checkRoundEnd() {
       }
     }
 
-    // Remove eliminados
     game.players = game.players.filter(p => p.lives > 0);
-
     game.phase = 'result';
     broadcastState();
 
-    // Inicia nova rodada automaticamente
     setTimeout(() => {
       if (game.players.length > 0) {
         startRound();
@@ -350,16 +332,11 @@ app.post('/game-state', (req, res) => {
   } else if (action === 'stand') {
     standPlayer(userId);
     res.json({ success: true });
-  } else if (action === 'join') {
-    // Para testes manuais via frontend
-    // O bot já lida com join via TikTok
-    res.json({ success: false, error: 'Use BLACKJACK no TikTok' });
   } else {
     res.json({ success: false, error: 'Ação inválida' });
   }
 });
 
-// SSE
 app.get('/events', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -369,8 +346,6 @@ app.get('/events', (req, res) => {
   });
 
   clients.push(res);
-
-  // Envia estado inicial
   broadcastState();
 
   req.on('close', () => {
@@ -399,7 +374,6 @@ async function connectToLive() {
   }
 }
 
-// Evento: Chat
 connection.on(WebcastEvent.CHAT, (data) => {
   const userId = data?.user?.id;
   const nickname = data?.user?.nickname || data?.user?.uniqueId || 'anon';
@@ -413,13 +387,11 @@ connection.on(WebcastEvent.CHAT, (data) => {
   const message = comment.trim().toUpperCase();
   console.log(`💬 @${nickname} (${userId}): ${message}`);
 
-  // Comandos
   if (message === 'BLACKJACK') {
     addPlayer(userId, nickname);
     return;
   }
 
-  // Verifica se o usuário está na mesa
   const player = game.players.find(p => p.id === userId);
   if (!player) return;
 
@@ -430,7 +402,6 @@ connection.on(WebcastEvent.CHAT, (data) => {
   }
 });
 
-// Outros eventos (log apenas)
 connection.on(WebcastEvent.MEMBER, (data) => {
   const name = data?.user?.nickname || 'alguém';
   console.log(`👤 @${name} entrou na LIVE.`);
