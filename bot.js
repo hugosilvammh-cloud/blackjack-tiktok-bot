@@ -354,7 +354,7 @@ app.get('/events', (req, res) => {
 });
 
 // =====================================================
-// TIKTOK LIVE
+// TIKTOK LIVE - CHAT CORRIGIDO
 // =====================================================
 
 console.log(`🤖 Blackjack TikTok Bot iniciando...`);
@@ -374,33 +374,96 @@ async function connectToLive() {
   }
 }
 
-connection.on(WebcastEvent.CHAT, (data) => {
-  const userId = data?.user?.id;
-  const nickname = data?.user?.nickname || data?.user?.uniqueId || 'anon';
-  const comment = data?.comment || data?.text || '';
+// =====================================================
+// CHAT - VERSÃO CORRIGIDA COM EXTRAÇÃO ROBUSTA
+// =====================================================
 
-  if (!userId) {
-    console.log('⚠️ Usuário sem ID, ignorando.');
+connection.on(WebcastEvent.CHAT, (data) => {
+  // Extrai os dados de forma mais robusta
+  const userId = data?.user?.id || data?.userId || null;
+  const nickname = data?.user?.nickname || data?.user?.uniqueId || data?.nickname || 'anon';
+  
+  // TENTA EXTRAIR O COMENTÁRIO DE VÁRIOS LUGARES
+  let comment = null;
+  
+  // 1. Campo mais comum
+  if (data?.comment) comment = data.comment;
+  // 2. Campo alternativo
+  else if (data?.text) comment = data.text;
+  // 3. Campo content
+  else if (data?.content) comment = data.content;
+  // 4. Campo message
+  else if (data?.message) comment = data.message;
+  // 5. Busca em qualquer campo de texto dentro do objeto
+  else {
+    const possibleTexts = [];
+    const searchForText = (obj, path = '') => {
+      if (!obj || typeof obj !== 'object') return;
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string' && value.length > 0 && value.length < 500) {
+          // Ignora valores que parecem IDs, URLs ou datas
+          if (!value.match(/^\d+$/) && !value.startsWith('http') && !value.includes('2026')) {
+            possibleTexts.push({ path: `${path}.${key}`, value });
+          }
+        } else if (value && typeof value === 'object') {
+          searchForText(value, `${path}.${key}`);
+        }
+      }
+    };
+    searchForText(data);
+    // Pega o primeiro texto que parecer um comentário
+    if (possibleTexts.length > 0) {
+      // Prioriza campos que parecem conter comentários
+      const priorityPaths = ['comment', 'text', 'content', 'message', 'describe'];
+      for (const priority of priorityPaths) {
+        const found = possibleTexts.find(p => p.path.includes(priority));
+        if (found) {
+          comment = found.value;
+          break;
+        }
+      }
+      if (!comment) {
+        comment = possibleTexts[0]?.value || null;
+      }
+    }
+  }
+
+  // Se não encontrou comentário, ignora
+  if (!comment || comment.trim() === '') {
+    console.log(`⚠️ Comentário vazio ou não encontrado para @${nickname}`);
+    // Mostra a estrutura para debug (apenas primeiro nível)
+    console.log('📦 Campos recebidos:', Object.keys(data).join(', '));
+    if (data?.user) {
+      console.log('👤 Campos do user:', Object.keys(data.user).join(', '));
+    }
     return;
   }
 
   const message = comment.trim().toUpperCase();
-  console.log(`💬 @${nickname} (${userId}): ${message}`);
+  console.log(`💬 @${nickname} (${userId || 'sem ID'}): ${message}`);
 
+  // Se não tem userId, tenta pegar de outro lugar
+  const finalUserId = userId || data?.user?.uniqueId || data?.uniqueId || `user_${Date.now()}`;
+
+  // Comandos
   if (message === 'BLACKJACK') {
-    addPlayer(userId, nickname);
+    addPlayer(finalUserId, nickname);
     return;
   }
 
-  const player = game.players.find(p => p.id === userId);
+  const player = game.players.find(p => p.id === finalUserId);
   if (!player) return;
 
   if (message === '1') {
-    hitPlayer(userId);
+    hitPlayer(finalUserId);
   } else if (message === '2') {
-    standPlayer(userId);
+    standPlayer(finalUserId);
   }
 });
+
+// =====================================================
+// OUTROS EVENTOS
+// =====================================================
 
 connection.on(WebcastEvent.MEMBER, (data) => {
   const name = data?.user?.nickname || 'alguém';
