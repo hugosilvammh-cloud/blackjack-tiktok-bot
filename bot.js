@@ -1,9 +1,8 @@
-const http = require('http');
-
-const {
+import http from 'http';
+import {
   TikTokLiveConnection,
   WebcastEvent
-} = require('tiktok-live-connector');
+} from 'tiktok-live-connector';
 
 // =====================================================
 // RENDER
@@ -28,7 +27,7 @@ http.createServer((req, res) => {
 const USERNAME = process.env.TIKTOK_USERNAME;
 
 if (!USERNAME) {
-  console.error('❌ TIKTOK_USERNAME não foi configurado.');
+  console.error('❌ TIKTOK_USERNAME não configurado.');
   process.exit(1);
 }
 
@@ -36,10 +35,12 @@ console.log('🤖 Blackjack TikTok Bot iniciando...');
 console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
 
 // =====================================================
-// CONEXÃO
+// TIKTOK
 // =====================================================
 
-const connection = new TikTokLiveConnection(USERNAME);
+const connection = new TikTokLiveConnection(USERNAME, {
+  processInitialData: false
+});
 
 // =====================================================
 // JOGADORES
@@ -54,6 +55,7 @@ let currentPlayer = null;
 // =====================================================
 
 async function connectToLive() {
+
   try {
 
     const state = await connection.connect();
@@ -67,11 +69,7 @@ async function connectToLive() {
 
     console.error('❌ Não foi possível conectar à LIVE:');
 
-    if (error && error.name === 'UserOfflineError') {
-      console.log('⏳ @' + USERNAME + ' não está ao vivo.');
-    } else {
-      console.error(error);
-    }
+    console.error(error);
 
     console.log('🔄 Tentando novamente em 30 segundos...');
 
@@ -85,10 +83,29 @@ async function connectToLive() {
 
 connection.on(WebcastEvent.CHAT, (data) => {
 
-  const username = data?.user?.uniqueId;
-  const comment = data?.comment;
+  console.log('📨 EVENTO DE CHAT RECEBIDO!');
 
-  if (!username || typeof comment !== 'string') {
+  console.log(
+    '📦 Dados:',
+    JSON.stringify(data, null, 2)
+  );
+
+  const username =
+    data?.user?.uniqueId ||
+    data?.user?.unique_id ||
+    null;
+
+  const comment =
+    typeof data?.comment === 'string'
+      ? data.comment
+      : null;
+
+  if (!username || comment === null) {
+
+    console.log(
+      '⚠️ Evento recebido, mas usuário/comentário não encontrado.'
+    );
+
     return;
   }
 
@@ -96,19 +113,21 @@ connection.on(WebcastEvent.CHAT, (data) => {
 
   console.log(`💬 @${username}: ${message}`);
 
-  // ---------------------------------------------------
-  // BLACKJACK = ENTRAR NA MESA
-  // ---------------------------------------------------
+  // ===================================================
+  // BLACKJACK
+  // ===================================================
 
   if (message === 'BLACKJACK') {
 
     if (players.has(username)) {
+
       console.log(`ℹ️ @${username} já está na mesa.`);
+
       return;
     }
 
     players.set(username, {
-      username: username,
+      username,
       lives: 3,
       playing: true
     });
@@ -122,9 +141,9 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ---------------------------------------------------
-  // VERIFICAR JOGADOR
-  // ---------------------------------------------------
+  // ===================================================
+  // JOGADOR
+  // ===================================================
 
   if (!players.has(username)) {
     return;
@@ -136,16 +155,18 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ---------------------------------------------------
+  // ===================================================
   // 1 = HIT
-  // ---------------------------------------------------
+  // ===================================================
 
   if (message === '1') {
 
     if (currentPlayer !== username) {
+
       console.log(
         `⏳ @${username} enviou 1, mas não é a vez dele.`
       );
+
       return;
     }
 
@@ -154,16 +175,18 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ---------------------------------------------------
+  // ===================================================
   // 2 = STAND
-  // ---------------------------------------------------
+  // ===================================================
 
   if (message === '2') {
 
     if (currentPlayer !== username) {
+
       console.log(
         `⏳ @${username} enviou 2, mas não é a vez dele.`
       );
+
       return;
     }
 
@@ -174,12 +197,15 @@ connection.on(WebcastEvent.CHAT, (data) => {
 });
 
 // =====================================================
-// NOVO MEMBRO
+// MEMBER
 // =====================================================
 
 connection.on(WebcastEvent.MEMBER, (data) => {
 
-  const username = data?.user?.uniqueId;
+  const username =
+    data?.user?.uniqueId ||
+    data?.user?.unique_id ||
+    null;
 
   if (!username) {
     return;
@@ -189,57 +215,15 @@ connection.on(WebcastEvent.MEMBER, (data) => {
 });
 
 // =====================================================
-// LIKE
-// =====================================================
-
-connection.on(WebcastEvent.LIKE, (data) => {
-
-  const username = data?.user?.uniqueId;
-
-  if (!username) {
-    return;
-  }
-
-  console.log(`❤️ @${username} curtiu a LIVE.`);
-});
-
-// =====================================================
-// FOLLOW
-// =====================================================
-
-connection.on(WebcastEvent.FOLLOW, (data) => {
-
-  const username = data?.user?.uniqueId;
-
-  if (!username) {
-    return;
-  }
-
-  console.log(`➕ @${username} seguiu a LIVE.`);
-});
-
-// =====================================================
-// SHARE
-// =====================================================
-
-connection.on(WebcastEvent.SHARE, (data) => {
-
-  const username = data?.user?.uniqueId;
-
-  if (!username) {
-    return;
-  }
-
-  console.log(`📤 @${username} compartilhou a LIVE.`);
-});
-
-// =====================================================
 // GIFT
 // =====================================================
 
 connection.on(WebcastEvent.GIFT, (data) => {
 
-  const username = data?.user?.uniqueId;
+  const username =
+    data?.user?.uniqueId ||
+    data?.user?.unique_id ||
+    null;
 
   if (!username) {
     return;
@@ -249,15 +233,21 @@ connection.on(WebcastEvent.GIFT, (data) => {
 });
 
 // =====================================================
-// FIM DA LIVE
+// LIKE
 // =====================================================
 
-connection.on(WebcastEvent.STREAM_END, () => {
+connection.on(WebcastEvent.LIKE, (data) => {
 
-  console.log('');
-  console.log('🔴 A LIVE terminou.');
-  console.log('');
+  const username =
+    data?.user?.uniqueId ||
+    data?.user?.unique_id ||
+    null;
 
+  if (!username) {
+    return;
+  }
+
+  console.log(`❤️ @${username} curtiu a LIVE.`);
 });
 
 // =====================================================
