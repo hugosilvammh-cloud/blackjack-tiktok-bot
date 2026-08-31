@@ -2,6 +2,7 @@
   "name": "blackjack-tiktok-bot",
   "version": "1.0.0",
   "description": "TikTok Live Blackjack Bot",
+  "type": "module",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
