@@ -1,25 +1,23 @@
-import http from 'http';
-import {
+const http = require('http');
+
+const {
   TikTokLiveConnection,
-  ControlEvent,
   WebcastEvent
-} from 'tiktok-live-connector';
+} = require('tiktok-live-connector');
 
 // =====================================================
-// RENDER HTTP SERVER
+// RENDER
 // =====================================================
 
 const PORT = process.env.PORT || 10000;
 
-const server = http.createServer((req, res) => {
+http.createServer((req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/plain; charset=utf-8'
   });
 
   res.end('Blackjack TikTok Bot online!');
-});
-
-server.listen(PORT, '0.0.0.0', () => {
+}).listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Servidor HTTP ativo na porta ${PORT}`);
 });
 
@@ -52,40 +50,34 @@ const players = new Map();
 let currentPlayer = null;
 
 // =====================================================
-// CONECTADO
+// CONECTAR
 // =====================================================
 
-connection.on(ControlEvent.CONNECTED, (state) => {
-  console.log('');
-  console.log('🟢 CONECTADO À TIKTOK LIVE!');
-  console.log(`🎥 Room ID: ${state?.roomId || 'desconhecido'}`);
-  console.log('');
-});
+async function connectToLive() {
+  try {
 
-// =====================================================
-// WEBSOCKET CONECTADO
-// =====================================================
+    const state = await connection.connect();
 
-connection.on(ControlEvent.WEBSOCKET_CONNECTED, () => {
-  console.log('🔌 WebSocket TikTok conectado.');
-});
+    console.log('');
+    console.log('🟢 CONECTADO À TIKTOK LIVE!');
+    console.log(`🎥 Room ID: ${state.roomId}`);
+    console.log('');
 
-// =====================================================
-// DESCONECTADO
-// =====================================================
+  } catch (error) {
 
-connection.on(ControlEvent.DISCONNECTED, () => {
-  console.log('🔴 TikTok LIVE desconectada.');
-});
+    console.error('❌ Não foi possível conectar à LIVE:');
 
-// =====================================================
-// ERRO
-// =====================================================
+    if (error && error.name === 'UserOfflineError') {
+      console.log('⏳ @' + USERNAME + ' não está ao vivo.');
+    } else {
+      console.error(error);
+    }
 
-connection.on(ControlEvent.ERROR, (error) => {
-  console.error('❌ Erro do TikTok:');
-  console.error(error);
-});
+    console.log('🔄 Tentando novamente em 30 segundos...');
+
+    setTimeout(connectToLive, 30000);
+  }
+}
 
 // =====================================================
 // CHAT
@@ -96,7 +88,6 @@ connection.on(WebcastEvent.CHAT, (data) => {
   const username = data?.user?.uniqueId;
   const comment = data?.comment;
 
-  // Ignorar evento incompleto
   if (!username || typeof comment !== 'string') {
     return;
   }
@@ -105,9 +96,9 @@ connection.on(WebcastEvent.CHAT, (data) => {
 
   console.log(`💬 @${username}: ${message}`);
 
-  // ===================================================
-  // BLACKJACK
-  // ===================================================
+  // ---------------------------------------------------
+  // BLACKJACK = ENTRAR NA MESA
+  // ---------------------------------------------------
 
   if (message === 'BLACKJACK') {
 
@@ -117,7 +108,7 @@ connection.on(WebcastEvent.CHAT, (data) => {
     }
 
     players.set(username, {
-      username,
+      username: username,
       lives: 3,
       playing: true
     });
@@ -131,9 +122,9 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ===================================================
+  // ---------------------------------------------------
   // VERIFICAR JOGADOR
-  // ===================================================
+  // ---------------------------------------------------
 
   if (!players.has(username)) {
     return;
@@ -145,9 +136,9 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ===================================================
+  // ---------------------------------------------------
   // 1 = HIT
-  // ===================================================
+  // ---------------------------------------------------
 
   if (message === '1') {
 
@@ -163,9 +154,9 @@ connection.on(WebcastEvent.CHAT, (data) => {
     return;
   }
 
-  // ===================================================
+  // ---------------------------------------------------
   // 2 = STAND
-  // ===================================================
+  // ---------------------------------------------------
 
   if (message === '2') {
 
@@ -183,7 +174,7 @@ connection.on(WebcastEvent.CHAT, (data) => {
 });
 
 // =====================================================
-// MEMBER
+// NOVO MEMBRO
 // =====================================================
 
 connection.on(WebcastEvent.MEMBER, (data) => {
@@ -258,39 +249,19 @@ connection.on(WebcastEvent.GIFT, (data) => {
 });
 
 // =====================================================
-// STREAM END
+// FIM DA LIVE
 // =====================================================
 
 connection.on(WebcastEvent.STREAM_END, () => {
+
   console.log('');
   console.log('🔴 A LIVE terminou.');
   console.log('');
+
 });
 
 // =====================================================
-// CONECTAR
+// INICIAR
 // =====================================================
 
-async function start() {
-
-  try {
-
-    const state = await connection.connect();
-
-    console.log('');
-    console.log('🟢 CONEXÃO ESTABELECIDA!');
-    console.log(`🎥 Room ID: ${state.roomId}`);
-    console.log('');
-
-  } catch (error) {
-
-    console.error('❌ Falha ao conectar à LIVE:');
-    console.error(error);
-
-    console.log('🔄 Tentando novamente em 30 segundos...');
-
-    setTimeout(start, 30000);
-  }
-}
-
-start();
+connectToLive();
