@@ -1,13 +1,15 @@
 {
   "name": "blackjack-tiktok-bot",
   "version": "1.0.0",
-  "description": "Blackjack TikTok Bot",
   "type": "module",
   "main": "bot.js",
   "scripts": {
     "start": "node bot.js"
   },
   "dependencies": {
-    "tiktok-live-connector": "^2.4.0"
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "tiktok-live-connector": "^1.0.0"
   }
 }
