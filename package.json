@@ -1,0 +1,12 @@
+{
+  "name": "blackjack-tiktok-bot",
+  "version": "1.0.0",
+  "description": "TikTok Live Blackjack Bot",
+  "main": "bot.js",
+  "scripts": {
+    "start": "node bot.js"
+  },
+  "dependencies": {
+    "tiktok-live-connector": "^2.4.0"
+  }
+}
