@@ -1,389 +1,465 @@
-import express from 'express';
 import http from 'http';
-import { Server } from 'socket.io';
-import { WebcastPushConnection } from 'tiktok-live-connector';
+import express from 'express';
+import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
 import cors from 'cors';
-import path from 'path';
 import { fileURLToPath } from 'url';
+import path from 'path';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
-});
+// =====================================================
+// CONFIGURAÇÃO
+// =====================================================
 
+const PORT = process.env.PORT || 10000;
+const USERNAME = process.env.TIKTOK_USERNAME;
+
+if (!USERNAME) {
+  console.error('❌ TIKTOK_USERNAME não configurado.');
+  process.exit(1);
+}
+
+// =====================================================
+// EXPRESS + SSE
+// =====================================================
+
+const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ====== ESTADO DO JOGO ======
-const gameState = {
-  players: [],
-  deck: [],
+// =====================================================
+// ESTADO DO JOGO (fonte única da verdade)
+// =====================================================
+
+const game = {
+  phase: 'waiting', // waiting | dealing | players | dealer | result
+  players: [],      // { id, nickname, lives, hand, score, stand, busted, blackjack }
   dealerHand: [],
-  gameActive: false,
-  roundActive: false,
+  dealerScore: 0,
+  currentTurn: null, // id do jogador
   maxPlayers: 2,
-  currentTurn: null,
-  playerLives: {},
   messages: [],
-  phase: 'waiting'
 };
 
-// ====== BARALHO ======
+// Baralho e funções auxiliares
 function createDeck() {
-  const suits = ['♠', '♥', '♦', '♣'];
+  const suits = ['♥️', '♦️', '♣️', '♠️'];
   const values = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   const deck = [];
-  for (let suit of suits) {
-    for (let value of values) {
+  for (const suit of suits) {
+    for (const value of values) {
       deck.push({ value, suit });
     }
   }
-  return shuffle(deck);
-}
-
-function shuffle(array) {
-  for (let i = array.length - 1; i > 0; i--) {
+  // Embaralha
+  for (let i = deck.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
+    [deck[i], deck[j]] = [deck[j], deck[i]];
   }
-  return array;
+  return deck;
 }
 
-function cardValue(card) {
-  if (card.value === 'A') return 11;
-  if (['J', 'Q', 'K'].includes(card.value)) return 10;
-  return parseInt(card.value);
+let deck = createDeck();
+
+function drawCard() {
+  if (deck.length === 0) deck = createDeck();
+  return deck.pop();
 }
 
-function handValue(hand) {
-  let value = 0;
+function handScore(hand) {
+  let total = 0;
   let aces = 0;
-  for (let card of hand) {
-    if (card.value === 'A') aces++;
-    value += cardValue(card);
+  for (const card of hand) {
+    if (card.value === 'A') { total += 11; aces++; }
+    else if (['J', 'Q', 'K'].includes(card.value)) total += 10;
+    else total += parseInt(card.value);
   }
-  while (value > 21 && aces > 0) {
-    value -= 10;
+  while (total > 21 && aces > 0) {
+    total -= 10;
     aces--;
   }
-  return value;
+  return total;
 }
 
-function formatCard(card) {
-  return `${card.value}${card.suit}`;
+// =====================================================
+// FUNÇÕES DO JOGO
+// =====================================================
+
+function resetGame() {
+  deck = createDeck();
+  game.phase = 'waiting';
+  game.players = [];
+  game.dealerHand = [];
+  game.dealerScore = 0;
+  game.currentTurn = null;
+  broadcastState();
 }
 
-// ====== JOGO ======
-function startGame() {
-  gameState.deck = createDeck();
-  gameState.dealerHand = [];
-  gameState.roundActive = true;
-  gameState.gameActive = true;
-  gameState.phase = 'dealing';
+function addPlayer(userId, nickname) {
+  if (game.players.find(p => p.id === userId)) {
+    broadcastMessage(`@${nickname} já está na mesa.`);
+    return false;
+  }
+  if (game.players.length >= game.maxPlayers) {
+    broadcastMessage(`Mesa cheia! @${nickname} não pode entrar.`);
+    return false;
+  }
+  if (game.phase !== 'waiting' && game.phase !== 'result') {
+    broadcastMessage(`⏳ Jogo em andamento, @${nickname}. Aguarde a próxima rodada.`);
+    return false;
+  }
+  game.players.push({
+    id: userId,
+    nickname: nickname,
+    lives: 3,
+    hand: [],
+    score: 0,
+    stand: false,
+    busted: false,
+    blackjack: false,
+  });
+  broadcastMessage(`🃏 @${nickname} entrou na mesa! (${game.players.length}/${game.maxPlayers})`);
+  broadcastState();
   
-  gameState.players.forEach(p => {
-    p.hand = [drawCard(), drawCard()];
+  // Se atingiu 2 jogadores, inicia automaticamente
+  if (game.players.length === game.maxPlayers) {
+    setTimeout(startRound, 1500);
+  }
+  return true;
+}
+
+function removePlayer(userId) {
+  const player = game.players.find(p => p.id === userId);
+  if (!player) return;
+  game.players = game.players.filter(p => p.id !== userId);
+  if (game.currentTurn === userId) {
+    game.currentTurn = game.players.length > 0 ? game.players[0].id : null;
+  }
+  broadcastMessage(`❌ @${player.nickname} saiu da mesa.`);
+  broadcastState();
+}
+
+function startRound() {
+  if (game.players.length === 0) {
+    game.phase = 'waiting';
+    broadcastState();
+    return;
+  }
+
+  game.phase = 'dealing';
+  game.dealerHand = [];
+  deck = createDeck();
+
+  // Reseta estado dos jogadores
+  for (const p of game.players) {
+    p.hand = [];
+    p.score = 0;
     p.stand = false;
     p.busted = false;
     p.blackjack = false;
-    p.result = null;
-  });
-
-  gameState.dealerHand = [drawCard()];
-  
-  gameState.players.forEach(p => {
-    if (handValue(p.hand) === 21) p.blackjack = true;
-  });
-
-  gameState.currentTurn = gameState.players[0]?.username || null;
-  gameState.phase = 'players';
-  
-  broadcastState();
-  broadcastMessage('🃏 Nova rodada começou!');
-}
-
-function drawCard() {
-  if (gameState.deck.length === 0) {
-    gameState.deck = createDeck();
   }
-  return gameState.deck.pop();
+
+  // Distribui 2 cartas para cada jogador
+  for (let i = 0; i < 2; i++) {
+    for (const p of game.players) {
+      p.hand.push(drawCard());
+    }
+  }
+
+  // Dealer recebe 1 carta (a segunda será virada)
+  game.dealerHand = [drawCard()];
+
+  // Calcula pontuações e verifica blackjack
+  for (const p of game.players) {
+    p.score = handScore(p.hand);
+    if (p.score === 21 && p.hand.length === 2) {
+      p.blackjack = true;
+      p.stand = true;
+    }
+  }
+
+  game.dealerScore = handScore(game.dealerHand);
+
+  // Define primeiro turno
+  game.phase = 'players';
+  const firstPlayer = game.players.find(p => !p.stand && !p.busted);
+  game.currentTurn = firstPlayer ? firstPlayer.id : null;
+
+  broadcastState();
+  broadcastMessage(`🎯 Nova rodada! Vez de @${game.currentTurn ? game.players.find(p => p.id === game.currentTurn).nickname : 'ninguém'}`);
 }
 
-function hitPlayer(username) {
-  const player = gameState.players.find(p => p.username === username);
-  if (!player || player.stand || player.busted) return false;
-  
+function hitPlayer(userId) {
+  const player = game.players.find(p => p.id === userId);
+  if (!player) return;
+  if (game.phase !== 'players' || game.currentTurn !== userId) return;
+  if (player.stand || player.busted) return;
+
   player.hand.push(drawCard());
-  const value = handValue(player.hand);
-  
-  if (value > 21) {
+  player.score = handScore(player.hand);
+
+  if (player.score > 21) {
     player.busted = true;
-    playerLoseLife(username);
-    broadcastMessage(`${username} estourou! 💥`);
-  }
-  
-  if (value === 21) {
+    player.lives--;
+    broadcastMessage(`💥 @${player.nickname} estourou! Perdeu uma vida.`);
+    if (player.lives <= 0) {
+      broadcastMessage(`💀 @${player.nickname} foi eliminado!`);
+      // Remove da lista de jogadores ativos
+      game.players = game.players.filter(p => p.id !== userId);
+      if (game.currentTurn === userId) {
+        const next = game.players.find(p => !p.stand && !p.busted);
+        game.currentTurn = next ? next.id : null;
+      }
+    }
+  } else if (player.score === 21) {
     player.stand = true;
-    broadcastMessage(`${username} fez 21! 🎯`);
+    broadcastMessage(`🎯 @${player.nickname} fez 21!`);
   }
-  
+
   broadcastState();
   checkRoundEnd();
-  return true;
 }
 
-function standPlayer(username) {
-  const player = gameState.players.find(p => p.username === username);
-  if (!player) return false;
+function standPlayer(userId) {
+  const player = game.players.find(p => p.id === userId);
+  if (!player) return;
+  if (game.phase !== 'players' || game.currentTurn !== userId) return;
+  if (player.stand || player.busted) return;
+
   player.stand = true;
-  broadcastMessage(`${username} ficou! 🛑`);
+  broadcastMessage(`🛑 @${player.nickname} parou com ${player.score} pontos.`);
   broadcastState();
   checkRoundEnd();
-  return true;
-}
-
-function playerLoseLife(username) {
-  if (!gameState.playerLives[username]) gameState.playerLives[username] = 3;
-  gameState.playerLives[username]--;
-  
-  if (gameState.playerLives[username] <= 0) {
-    broadcastMessage(`${username} perdeu todas as vidas! ❌`);
-    removePlayer(username);
-  }
-}
-
-function playerWinLife(username) {
-  if (!gameState.playerLives[username]) gameState.playerLives[username] = 3;
-  if (gameState.playerLives[username] < 3) {
-    gameState.playerLives[username]++;
-    broadcastMessage(`${username} ganhou uma vida! ❤️`);
-  }
-}
-
-function removePlayer(username) {
-  gameState.players = gameState.players.filter(p => p.username !== username);
-  delete gameState.playerLives[username];
-  if (gameState.currentTurn === username) {
-    gameState.currentTurn = gameState.players[0]?.username || null;
-  }
-  broadcastState();
 }
 
 function checkRoundEnd() {
-  const allFinished = gameState.players.every(p => p.stand || p.busted);
-  if (!allFinished) return;
-  
-  gameState.phase = 'dealer';
-  broadcastState();
-  
-  setTimeout(() => {
-    let dealerValue = handValue(gameState.dealerHand);
-    
-    while (dealerValue < 17) {
-      gameState.dealerHand.push(drawCard());
-      dealerValue = handValue(gameState.dealerHand);
-    }
-    
-    const dealerBusted = dealerValue > 21;
-    
-    gameState.players.forEach(p => {
-      if (p.busted) {
-        p.result = 'lose';
+  // Verifica se todos os jogadores pararam ou estouraram
+  const allDone = game.players.every(p => p.stand || p.busted);
+  if (!allDone) {
+    // Avança para o próximo jogador ativo
+    const currentIndex = game.players.findIndex(p => p.id === game.currentTurn);
+    let nextIndex = (currentIndex + 1) % game.players.length;
+    let attempts = 0;
+    while (attempts < game.players.length) {
+      const next = game.players[nextIndex];
+      if (!next.stand && !next.busted) {
+        game.currentTurn = next.id;
+        broadcastState();
+        broadcastMessage(`🎯 Vez de @${next.nickname}`);
         return;
       }
-      const playerValue = handValue(p.hand);
-      
-      if (dealerBusted) {
-        p.result = 'win';
-        playerWinLife(p.username);
-        broadcastMessage(`${p.username} venceu! 🎉 Dealer estourou!`);
-      } else if (playerValue > dealerValue) {
-        p.result = 'win';
-        playerWinLife(p.username);
-        broadcastMessage(`${p.username} venceu! 🎉`);
-      } else if (playerValue < dealerValue) {
-        p.result = 'lose';
-        playerLoseLife(p.username);
-        broadcastMessage(`${p.username} perdeu! 😢`);
+      nextIndex = (nextIndex + 1) % game.players.length;
+      attempts++;
+    }
+    // Se chegou aqui, ninguém mais pode jogar
+  }
+
+  // ROUND END - Dealer joga
+  game.phase = 'dealer';
+  broadcastState();
+  broadcastMessage('🎩 Vez do dealer...');
+
+  // Dealer compra até 17
+  setTimeout(() => {
+    while (game.dealerScore < 17) {
+      game.dealerHand.push(drawCard());
+      game.dealerScore = handScore(game.dealerHand);
+    }
+
+    const dealerBusted = game.dealerScore > 21;
+
+    // Avalia resultados
+    for (const p of game.players) {
+      if (p.busted) continue;
+      if (dealerBusted || p.score > game.dealerScore) {
+        p.lives++;
+        broadcastMessage(`🏆 @${p.nickname} venceu! +1 vida`);
+      } else if (p.score < game.dealerScore) {
+        p.lives--;
+        broadcastMessage(`😢 @${p.nickname} perdeu! -1 vida`);
+        if (p.lives <= 0) {
+          broadcastMessage(`💀 @${p.nickname} foi eliminado!`);
+        }
       } else {
-        p.result = 'push';
-        broadcastMessage(`${p.username} empatou! 🤝`);
+        broadcastMessage(`🤝 @${p.nickname} empatou!`);
       }
-    });
-    
-    gameState.roundActive = false;
-    gameState.phase = 'result';
+    }
+
+    // Remove eliminados
+    game.players = game.players.filter(p => p.lives > 0);
+
+    game.phase = 'result';
     broadcastState();
-    
+
+    // Inicia nova rodada automaticamente
     setTimeout(() => {
-      if (gameState.players.length > 0) {
-        startGame();
+      if (game.players.length > 0) {
+        startRound();
       } else {
-        gameState.gameActive = false;
-        gameState.phase = 'waiting';
+        game.phase = 'waiting';
         broadcastState();
+        broadcastMessage('🟢 Aguardando jogadores...');
       }
     }, 5000);
-  }, 1000);
+
+  }, 2000);
 }
+
+// =====================================================
+// BROADCAST
+// =====================================================
+
+let clients = [];
 
 function broadcastState() {
-  const state = {
-    ...gameState,
-    dealerHand: gameState.dealerHand.map(formatCard),
-    dealerValue: handValue(gameState.dealerHand),
-    players: gameState.players.map(p => ({
-      ...p,
-      hand: p.hand.map(formatCard),
-      handValue: handValue(p.hand)
-    }))
+  const data = {
+    type: 'state',
+    data: game,
   };
-  io.emit('gameState', state);
-}
-
-function broadcastMessage(msg) {
-  gameState.messages.push({ text: msg, timestamp: Date.now() });
-  if (gameState.messages.length > 50) gameState.messages.shift();
-  io.emit('message', msg);
-}
-
-// ====== TIKTOK CONNECTION ======
-let tiktokConn = null;
-
-function connectTikTok(username) {
-  if (tiktokConn) {
-    tiktokConn.disconnect();
-  }
-  
-  tiktokConn = new WebcastPushConnection(username);
-  
-  tiktokConn.connect().then(() => {
-    console.log(`✅ Conectado ao live: ${username}`);
-    broadcastMessage(`🎮 Bot conectado ao @${username}`);
-  }).catch(err => {
-    console.error('Erro ao conectar TikTok:', err);
-    broadcastMessage(`❌ Erro ao conectar: ${err.message}`);
-  });
-  
-  tiktokConn.on('chat', (data) => {
-    const username = data.uniqueId;
-    const message = data.comment.toUpperCase().trim();
-    
-    if (message === 'BLACKJACK' || message === 'BJ') {
-      if (!gameState.gameActive || gameState.phase === 'waiting' || gameState.phase === 'end') {
-        if (gameState.players.length >= gameState.maxPlayers) {
-          broadcastMessage(`⏳ Mesa cheia, ${username}!`);
-          return;
-        }
-        if (gameState.players.find(p => p.username === username)) {
-          broadcastMessage(`⏳ ${username} já está na mesa!`);
-          return;
-        }
-        gameState.players.push({ username, hand: [], stand: false, busted: false, blackjack: false, result: null });
-        if (!gameState.playerLives[username]) gameState.playerLives[username] = 3;
-        broadcastMessage(`${username} entrou na mesa! 🃏`);
-        if (gameState.players.length === 1 && !gameState.roundActive) {
-          setTimeout(startGame, 1000);
-        }
-        broadcastState();
-      } else {
-        broadcastMessage(`⏳ Jogo já começou, ${username}! Aguarde a próxima rodada.`);
-      }
-    }
-    
-    if (message === '1' && gameState.currentTurn === username) {
-      hitPlayer(username);
-    }
-    
-    if (message === '2' && gameState.currentTurn === username) {
-      standPlayer(username);
-    }
+  clients.forEach(client => {
+    client.write(`data: ${JSON.stringify(data)}\n\n`);
   });
 }
 
-// ====== ROTAS HTTP ======
+function broadcastMessage(text) {
+  const data = {
+    type: 'message',
+    data: text,
+  };
+  clients.forEach(client => {
+    client.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+  console.log(`📢 ${text}`);
+}
+
+// =====================================================
+// ROTAS HTTP
+// =====================================================
+
 app.get('/state', (req, res) => {
-  res.json(gameState);
+  res.json(game);
 });
 
 app.post('/game-state', (req, res) => {
-  const { action, username } = req.body;
-  
-  if (action === 'hit' && username === gameState.currentTurn) {
-    hitPlayer(username);
+  const { action, userId } = req.body;
+  if (action === 'hit') {
+    hitPlayer(userId);
     res.json({ success: true });
-  } else if (action === 'stand' && username === gameState.currentTurn) {
-    standPlayer(username);
+  } else if (action === 'stand') {
+    standPlayer(userId);
     res.json({ success: true });
   } else if (action === 'join') {
-    if (gameState.players.length >= gameState.maxPlayers) {
-      res.json({ success: false, error: 'Mesa cheia' });
-      return;
-    }
-    if (gameState.players.find(p => p.username === username)) {
-      res.json({ success: false, error: 'Já está na mesa' });
-      return;
-    }
-    gameState.players.push({ username, hand: [], stand: false, busted: false, blackjack: false, result: null });
-    if (!gameState.playerLives[username]) gameState.playerLives[username] = 3;
-    broadcastMessage(`${username} entrou na mesa! 🃏`);
-    if (gameState.players.length === 1 && !gameState.roundActive) {
-      setTimeout(startGame, 1000);
-    }
-    broadcastState();
-    res.json({ success: true });
-  } else if (action === 'leave') {
-    removePlayer(username);
-    broadcastMessage(`${username} saiu da mesa.`);
-    broadcastState();
-    res.json({ success: true });
+    // Para testes manuais via frontend
+    // O bot já lida com join via TikTok
+    res.json({ success: false, error: 'Use BLACKJACK no TikTok' });
   } else {
     res.json({ success: false, error: 'Ação inválida' });
   }
 });
 
-// ====== SSE ======
+// SSE
 app.get('/events', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     'Connection': 'keep-alive',
-    'Access-Control-Allow-Origin': '*'
+    'Access-Control-Allow-Origin': '*',
   });
 
-  const sendEvent = (data) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
-  };
+  clients.push(res);
 
-  sendEvent({ type: 'state', data: gameState });
-
-  const listener = (state) => {
-    sendEvent({ type: 'state', data: state });
-  };
-  
-  io.on('gameState', listener);
+  // Envia estado inicial
+  broadcastState();
 
   req.on('close', () => {
-    io.off('gameState', listener);
+    clients = clients.filter(client => client !== res);
   });
 });
 
-// ====== INICIALIZAÇÃO ======
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
-  console.log('📡 SSE em /events');
-  console.log('📡 GET /state');
-  console.log('📡 POST /game-state');
+// =====================================================
+// TIKTOK LIVE
+// =====================================================
+
+console.log(`🤖 Blackjack TikTok Bot iniciando...`);
+console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
+
+const connection = new TikTokLiveConnection(USERNAME, {
+  processInitialData: false,
 });
 
-// Conectar ao TikTok (substitua pelo usuário)
-connectTikTok('theblackjackdealer');
+async function connectToLive() {
+  try {
+    const state = await connection.connect();
+    console.log(`✅ Conectado à LIVE! Room ID: ${state.roomId}`);
+  } catch (error) {
+    console.error('❌ Erro ao conectar:', error.message);
+    setTimeout(connectToLive, 30000);
+  }
+}
+
+// Evento: Chat
+connection.on(WebcastEvent.CHAT, (data) => {
+  const userId = data?.user?.id;
+  const nickname = data?.user?.nickname || data?.user?.uniqueId || 'anon';
+  const comment = data?.comment || data?.text || '';
+
+  if (!userId) {
+    console.log('⚠️ Usuário sem ID, ignorando.');
+    return;
+  }
+
+  const message = comment.trim().toUpperCase();
+  console.log(`💬 @${nickname} (${userId}): ${message}`);
+
+  // Comandos
+  if (message === 'BLACKJACK') {
+    addPlayer(userId, nickname);
+    return;
+  }
+
+  // Verifica se o usuário está na mesa
+  const player = game.players.find(p => p.id === userId);
+  if (!player) return;
+
+  if (message === '1') {
+    hitPlayer(userId);
+  } else if (message === '2') {
+    standPlayer(userId);
+  }
+});
+
+// Outros eventos (log apenas)
+connection.on(WebcastEvent.MEMBER, (data) => {
+  const name = data?.user?.nickname || 'alguém';
+  console.log(`👤 @${name} entrou na LIVE.`);
+});
+
+connection.on(WebcastEvent.LIKE, (data) => {
+  const name = data?.user?.nickname || 'alguém';
+  console.log(`❤️ @${name} curtiu.`);
+});
+
+connection.on(WebcastEvent.GIFT, (data) => {
+  const name = data?.user?.nickname || 'alguém';
+  console.log(`🎁 @${name} enviou presente.`);
+});
+
+connection.on(WebcastEvent.STREAM_END, () => {
+  console.log('🔴 A LIVE terminou.');
+  broadcastMessage('🔴 LIVE encerrada. O bot aguarda a próxima.');
+});
+
+// =====================================================
+// INICIAR SERVIDOR
+// =====================================================
+
+const server = http.createServer(app);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🌐 Servidor HTTP ativo na porta ${PORT}`);
+  console.log(`📡 SSE em /events`);
+  console.log(`📡 GET /state`);
+  console.log(`📡 POST /game-state`);
+  connectToLive();
+});
