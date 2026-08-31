@@ -1,9 +1,13 @@
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const { WebcastPushConnection } = require('tiktok-live-connector');
-const cors = require('cors');
-const path = require('path');
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import { WebcastPushConnection } from 'tiktok-live-connector';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const server = http.createServer(app);
@@ -16,20 +20,20 @@ const io = new Server(server, {
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ====== ESTADO DO JOGO ======
 const gameState = {
-  players: [], // { username, hand, stand, busted, blackjack, result }
+  players: [],
   deck: [],
   dealerHand: [],
   gameActive: false,
   roundActive: false,
   maxPlayers: 2,
   currentTurn: null,
-  playerLives: {}, // { username: 3 }
+  playerLives: {},
   messages: [],
-  phase: 'waiting' // waiting, dealing, players, dealer, result, end
+  phase: 'waiting'
 };
 
 // ====== BARALHO ======
@@ -85,7 +89,6 @@ function startGame() {
   gameState.gameActive = true;
   gameState.phase = 'dealing';
   
-  // Dar 2 cartas para cada jogador
   gameState.players.forEach(p => {
     p.hand = [drawCard(), drawCard()];
     p.stand = false;
@@ -94,15 +97,12 @@ function startGame() {
     p.result = null;
   });
 
-  // Dealer recebe 1 carta (a segunda fica virada)
   gameState.dealerHand = [drawCard()];
   
-  // Verifica Blackjack
   gameState.players.forEach(p => {
     if (handValue(p.hand) === 21) p.blackjack = true;
   });
 
-  // Define primeiro turno
   gameState.currentTurn = gameState.players[0]?.username || null;
   gameState.phase = 'players';
   
@@ -184,11 +184,9 @@ function checkRoundEnd() {
   gameState.phase = 'dealer';
   broadcastState();
   
-  // Dealer joga
   setTimeout(() => {
     let dealerValue = handValue(gameState.dealerHand);
     
-    // Revela a segunda carta do dealer
     while (dealerValue < 17) {
       gameState.dealerHand.push(drawCard());
       dealerValue = handValue(gameState.dealerHand);
@@ -225,7 +223,6 @@ function checkRoundEnd() {
     gameState.phase = 'result';
     broadcastState();
     
-    // Próxima rodada após 5s
     setTimeout(() => {
       if (gameState.players.length > 0) {
         startGame();
@@ -280,7 +277,6 @@ function connectTikTok(username) {
     const username = data.uniqueId;
     const message = data.comment.toUpperCase().trim();
     
-    // Comandos do jogo
     if (message === 'BLACKJACK' || message === 'BJ') {
       if (!gameState.gameActive || gameState.phase === 'waiting' || gameState.phase === 'end') {
         if (gameState.players.length >= gameState.maxPlayers) {
@@ -367,10 +363,8 @@ app.get('/events', (req, res) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
-  // Envia estado inicial
   sendEvent({ type: 'state', data: gameState });
 
-  // Listener para mudanças
   const listener = (state) => {
     sendEvent({ type: 'state', data: state });
   };
