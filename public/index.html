@@ -2,592 +2,2690 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Blackjack Live</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <style>
-    /* ===== TODO O SEU CSS ORIGINAL AQUI ===== */
-    /* (Eu vou colocar um resumo, mas você DEVE manter o CSS completo do seu index.html original) */
-    /* Por favor, mantenha todo o CSS que você já tinha, desde * { box-sizing... até o final */
+<title>Blackjack Live</title>
 
-    * {
-      box-sizing: border-box;
+<style>
+*{
+    box-sizing:border-box;
+}
+
+html,
+body{
+    margin:0;
+    width:100%;
+    min-height:100%;
+    background:#050505;
+}
+
+body{
+    color:white;
+    font-family:Arial,sans-serif;
+    font-size:12px;
+    overflow-x:hidden;
+}
+
+/* =========================
+   FULL SCREEN
+========================= */
+
+.fullscreen-control{
+    position:fixed;
+    top:8px;
+    right:8px;
+    z-index:9999;
+}
+
+.fullscreen-button{
+    width:32px;
+    height:32px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:#111;
+    color:#ffd700;
+    border:1px solid #5c4217;
+    border-radius:7px;
+    padding:0;
+    font-size:18px;
+    font-weight:bold;
+    box-shadow:0 2px 8px #000;
+    cursor:pointer;
+}
+
+.fullscreen-button:active{
+    transform:scale(.94);
+}
+
+/* =========================
+   TOP
+========================= */
+
+.topo{
+    text-align:center;
+    padding:7px;
+}
+
+.topo h1{
+    margin:0;
+    color:gold;
+    font-size:23px;
+}
+
+.topo p{
+    margin:2px;
+    color:#aaa;
+}
+
+/* =========================
+   JOIN
+========================= */
+
+.entrada{
+    text-align:center;
+    margin-bottom:5px;
+}
+
+input{
+    height:30px;
+    width:130px;
+    border:0;
+    border-radius:5px;
+    padding:5px;
+}
+
+button{
+    border:0;
+    border-radius:5px;
+    padding:7px 8px;
+    margin:2px;
+    font-size:10px;
+    font-weight:bold;
+}
+
+/* =========================
+   PANELS
+========================= */
+
+.statusMesa,
+.painel,
+.narracao,
+.historico{
+    width:98%;
+    max-width:700px;
+    margin:5px auto;
+    background:#111;
+    border:1px solid #5c4217;
+    border-radius:8px;
+    padding:6px;
+}
+
+.statusMesa{
+    text-align:center;
+}
+
+.statusTitulo{
+    color:#999;
+    font-size:9px;
+}
+
+.statusAtual{
+    color:gold;
+    font-size:13px;
+    font-weight:bold;
+}
+
+/* =========================
+   COMMENTARY
+========================= */
+
+.narracao{
+    margin-top:5px;
+    margin-bottom:5px;
+}
+
+.narracaoTitulo{
+    color:gold;
+    font-weight:bold;
+    font-size:12px;
+}
+
+#narracaoTexto{
+    font-size:15px;
+    line-height:1.3;
+    font-weight:bold;
+    margin-top:4px;
+    color:white;
+}
+
+/* =========================
+   TABLE
+========================= */
+
+.mesa{
+    position:relative;
+    width:98%;
+    max-width:700px;
+    height:450px;
+    margin:auto;
+    padding:10px;
+    display:flex;
+    flex-direction:column;
+
+    background:
+        radial-gradient(
+            ellipse at center,
+            #0c9348,
+            #03451f 76%
+        );
+
+    border:4px solid #573615;
+    border-radius:24px;
+
+    box-shadow:
+        0 0 0 2px #1c0f05,
+        0 5px 18px #000;
+
+    overflow:visible;
+}
+
+.mesa.falaAtiva .areaCartas,
+.mesa.falaAtiva .centroMesa,
+.mesa.falaAtiva .areaDealer,
+.mesa.falaAtiva .areaJogadores{
+    opacity:0;
+    visibility:hidden;
+}
+
+/* =========================
+   CARD AREA
+========================= */
+
+.areaCartas{
+    width:100%;
+    position:relative;
+    z-index:2;
+
+    transition:
+        opacity .18s ease,
+        visibility .18s ease;
+
+    flex:1;
+
+    display:flex;
+    flex-direction:column;
+}
+
+/* =========================
+   CARDS
+========================= */
+
+.carta{
+    display:inline-flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+
+    flex:0 0 auto;
+
+    width:40px;
+    height:57px;
+    margin:2px;
+
+    background:white;
+    color:#111;
+
+    border-radius:6px;
+
+    font-size:15px;
+    font-weight:bold;
+
+    box-shadow:
+        0 2px 5px #000,
+        0 0 2px rgba(255,255,255,.8);
+
+    vertical-align:middle;
+    position:relative;
+    overflow:hidden;
+}
+
+.naipe{
+    display:block;
+    font-size:12px;
+    line-height:13px;
+    margin-top:1px;
+}
+
+/* =========================
+   CARD BACK
+========================= */
+
+.escondida{
+    background:
+        radial-gradient(
+            circle at center,
+            #6b1111 0,
+            #350909 45%,
+            #160303 100%
+        );
+
+    color:white;
+
+    border:2px solid #d6aa38;
+
+    box-shadow:
+        0 2px 5px #000,
+        inset 0 0 0 2px #511010,
+        inset 0 0 0 4px #d6aa38,
+        inset 0 0 10px rgba(255,215,0,.35);
+}
+
+.escondida::before{
+    content:"♠ ♥ ♣ ♦";
+
+    position:absolute;
+    inset:5px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    font-size:12px;
+    letter-spacing:2px;
+
+    color:rgba(255,215,0,.8);
+
+    border:1px solid rgba(255,215,0,.5);
+    border-radius:3px;
+
+    transform:rotate(-20deg);
+}
+
+/* =========================
+   CARD ANIMATION
+========================= */
+
+.carta-animada{
+    animation:
+        cartaChegando
+        .65s
+        cubic-bezier(.16,.82,.25,1)
+        both;
+}
+
+@keyframes cartaChegando{
+
+    0%{
+        opacity:0;
+        transform:
+            translateY(-120px)
+            translateX(30px)
+            scale(.25)
+            rotate(-22deg);
+
+        filter:
+            brightness(1.8)
+            blur(2px);
     }
 
-    html,
-    body {
-      margin: 0;
-      width: 100%;
-      min-height: 100%;
-      background: #050505;
+    35%{
+        opacity:1;
+        transform:
+            translateY(15px)
+            translateX(-4px)
+            scale(1.15)
+            rotate(5deg);
+
+        filter:
+            brightness(1.25)
+            blur(0);
     }
 
-    body {
-      color: white;
-      font-family: Arial, sans-serif;
-      font-size: 12px;
-      overflow-x: hidden;
+    60%{
+        transform:
+            translateY(-6px)
+            translateX(2px)
+            scale(.96)
+            rotate(-2deg);
     }
 
-    /* ===== COLE AQUI TODO O RESTO DO SEU CSS ===== */
-    /* (mantenha exatamente como estava, pois vou usar os IDs e classes que você já tem) */
-
-    /* ... TODO O SEU CSS AQUI ... */
-
-    /* ===== SÓ UM EXEMPLO DO QUE VOCÊ JÁ TEM ===== */
-    .vidas {
-      font-size: 18px;
-      letter-spacing: 2px;
-      min-height: 22px;
+    80%{
+        transform:
+            translateY(3px)
+            scale(1.03)
+            rotate(1deg);
     }
 
-    .jogador.eliminado {
-      opacity: .45;
+    100%{
+        opacity:1;
+        transform:
+            translateY(0)
+            translateX(0)
+            scale(1)
+            rotate(0);
+
+        filter:
+            brightness(1)
+            blur(0);
+    }
+}
+
+/* =========================
+   DEALER REVEAL
+========================= */
+
+.carta-revelando{
+    animation:
+        virarCarta
+        .55s
+        ease-in-out
+        both;
+}
+
+@keyframes virarCarta{
+
+    0%{
+        transform:
+            perspective(500px)
+            rotateY(90deg)
+            scale(.92);
+        opacity:.4;
     }
 
-    .explosaoVidas {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 100%;
-      height: 100%;
-      transform: translate(-50%, -50%);
-      z-index: 280;
-      pointer-events: none;
-      opacity: 0;
+    45%{
+        transform:
+            perspective(500px)
+            rotateY(-12deg)
+            scale(1.05);
+        opacity:1;
     }
 
-    .explosaoVidas.mostrar {
-      animation: explosaoContainer 1.8s ease-out forwards;
+    100%{
+        transform:
+            perspective(500px)
+            rotateY(0)
+            scale(1);
+    }
+}
+
+/* =========================
+   CENTER MESSAGE
+========================= */
+
+.mensagemMesa{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:94%;
+
+    transform:
+        translate(-50%,-50%)
+        scale(.92);
+
+    z-index:200;
+
+    text-align:center;
+
+    opacity:0;
+    visibility:hidden;
+    pointer-events:none;
+
+    font-size:
+        clamp(
+            25px,
+            5.5vw,
+            42px
+        );
+
+    line-height:1.18;
+    font-weight:900;
+    color:white;
+
+    text-shadow:
+        0 3px 5px #000,
+        0 0 8px #000,
+        0 0 20px rgba(255,255,255,.35);
+
+    transition:
+        opacity .18s ease,
+        visibility .18s ease,
+        transform .18s ease;
+}
+
+.mensagemMesa.mostrar{
+    opacity:1;
+    visibility:visible;
+
+    animation:
+        mensagemEntrada
+        .35s
+        ease-out
+        forwards;
+}
+
+@keyframes mensagemEntrada{
+
+    0%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.72);
     }
 
-    .coracaoExplosao {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      font-size: clamp(38px, 9vw, 65px);
-      transform: translate(-50%, -50%);
-      opacity: 0;
-      filter: drop-shadow(0 0 7px red) drop-shadow(0 0 15px rgba(255, 0, 0, .8));
+    70%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1.05);
     }
 
-    /* ... TODO O RESTO DO SEU CSS ... */
-  </style>
+    100%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1);
+    }
+}
+
+.mensagemMesa.saindo{
+    animation:
+        mensagemSaida
+        .28s
+        ease-in
+        forwards;
+}
+
+@keyframes mensagemSaida{
+
+    0%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1);
+    }
+
+    100%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.94);
+    }
+}
+
+/* =========================
+   WELCOME
+========================= */
+
+.mensagemBoasVindas{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:94%;
+
+    transform:
+        translate(-50%,-50%)
+        scale(.4);
+
+    z-index:250;
+
+    text-align:center;
+    pointer-events:none;
+    opacity:0;
+
+    font-weight:900;
+    color:white;
+
+    text-shadow:
+        0 3px 5px #000,
+        0 0 12px #000,
+        0 0 25px rgba(255,215,0,.7);
+
+    animation:
+        boasVindas
+        2.7s
+        cubic-bezier(.16,.82,.25,1)
+        forwards;
+}
+
+.boasTitulo{
+    color:gold;
+
+    font-size:
+        clamp(
+            27px,
+            7vw,
+            48px
+        );
+
+    line-height:1;
+    margin-bottom:8px;
+}
+
+.boasNome{
+    color:white;
+
+    font-size:
+        clamp(
+            17px,
+            4vw,
+            27px
+        );
+
+    text-transform:uppercase;
+}
+
+@keyframes boasVindas{
+
+    0%{
+        opacity:0;
+
+        transform:
+            translate(-50%,-50%)
+            scale(.35)
+            rotate(-8deg);
+
+        filter:blur(5px);
+    }
+
+    18%{
+        opacity:1;
+
+        transform:
+            translate(-50%,-50%)
+            scale(1.15)
+            rotate(2deg);
+
+        filter:blur(0);
+    }
+
+    35%{
+        transform:
+            translate(-50%,-50%)
+            scale(.96)
+            rotate(-1deg);
+    }
+
+    50%{
+        transform:
+            translate(-50%,-50%)
+            scale(1.03)
+            rotate(0);
+    }
+
+    72%{
+        opacity:1;
+
+        transform:
+            translate(-50%,-50%)
+            scale(1);
+    }
+
+    100%{
+        opacity:0;
+
+        transform:
+            translate(-50%,-50%)
+            scale(1.12);
+    }
+}
+
+/* =========================
+   THREE HEART EXPLOSION
+========================= */
+
+.explosaoVidas{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:100%;
+    height:100%;
+
+    transform:
+        translate(-50%,-50%);
+
+    z-index:280;
+
+    pointer-events:none;
+    opacity:0;
+}
+
+.explosaoVidas.mostrar{
+    animation:
+        explosaoContainer
+        1.8s
+        ease-out
+        forwards;
+}
+
+.coracaoExplosao{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    font-size:
+        clamp(
+            38px,
+            9vw,
+            65px
+        );
+
+    transform:
+        translate(-50%,-50%);
+
+    opacity:0;
+
+    filter:
+        drop-shadow(0 0 7px red)
+        drop-shadow(0 0 15px rgba(255,0,0,.8));
+}
+
+.explosaoVidas.mostrar
+.coracaoExplosao:nth-child(1){
+    animation:
+        coracaoExplode1
+        1.3s
+        ease-out
+        forwards;
+}
+
+.explosaoVidas.mostrar
+.coracaoExplosao:nth-child(2){
+    animation:
+        coracaoExplode2
+        1.4s
+        ease-out
+        forwards;
+}
+
+.explosaoVidas.mostrar
+.coracaoExplosao:nth-child(3){
+    animation:
+        coracaoExplode3
+        1.5s
+        ease-out
+        forwards;
+}
+
+@keyframes explosaoContainer{
+
+    0%{opacity:1;}
+    70%{opacity:1;}
+    100%{opacity:0;}
+}
+
+@keyframes coracaoExplode1{
+
+    0%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.2)
+            rotate(0);
+    }
+
+    15%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1.15)
+            rotate(-8deg);
+    }
+
+    35%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% - 65px),
+                calc(-50% - 35px)
+            )
+            scale(1.05)
+            rotate(-25deg);
+    }
+
+    55%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% - 125px),
+                calc(-50% - 85px)
+            )
+            scale(.8)
+            rotate(-55deg);
+    }
+
+    75%{
+        opacity:.7;
+        transform:
+            translate(
+                calc(-50% - 175px),
+                calc(-50% - 125px)
+            )
+            scale(.35)
+            rotate(-90deg);
+    }
+
+    100%{
+        opacity:0;
+        transform:
+            translate(
+                calc(-50% - 210px),
+                calc(-50% - 145px)
+            )
+            scale(0)
+            rotate(-130deg);
+    }
+}
+
+@keyframes coracaoExplode2{
+
+    0%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.2);
+    }
+
+    15%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1.2);
+    }
+
+    35%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% + 4px),
+                calc(-50% - 65px)
+            )
+            scale(1.05)
+            rotate(8deg);
+    }
+
+    55%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% + 15px),
+                calc(-50% - 135px)
+            )
+            scale(.8)
+            rotate(30deg);
+    }
+
+    75%{
+        opacity:.7;
+        transform:
+            translate(
+                calc(-50% + 20px),
+                calc(-50% - 185px)
+            )
+            scale(.35)
+            rotate(60deg);
+    }
+
+    100%{
+        opacity:0;
+        transform:
+            translate(
+                calc(-50% + 25px),
+                calc(-50% - 225px)
+            )
+            scale(0)
+            rotate(100deg);
+    }
+}
+
+@keyframes coracaoExplode3{
+
+    0%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.2);
+    }
+
+    15%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(1.15);
+    }
+
+    35%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% + 70px),
+                calc(-50% - 30px)
+            )
+            scale(1.05)
+            rotate(10deg);
+    }
+
+    55%{
+        opacity:1;
+        transform:
+            translate(
+                calc(-50% + 135px),
+                calc(-50% - 75px)
+            )
+            scale(.8)
+            rotate(35deg);
+    }
+
+    75%{
+        opacity:.7;
+        transform:
+            translate(
+                calc(-50% + 185px),
+                calc(-50% - 110px)
+            )
+            scale(.35)
+            rotate(65deg);
+    }
+
+    100%{
+        opacity:0;
+        transform:
+            translate(
+                calc(-50% + 220px),
+                calc(-50% - 135px)
+            )
+            scale(0)
+            rotate(110deg);
+    }
+}
+
+/* =========================
+   FLASH
+========================= */
+
+.flashExplosao{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:20px;
+    height:20px;
+
+    border-radius:50%;
+    background:white;
+
+    transform:
+        translate(-50%,-50%)
+        scale(0);
+
+    opacity:0;
+    pointer-events:none;
+    z-index:279;
+}
+
+.flashExplosao.mostrar{
+    animation:
+        flashExplosao
+        .7s
+        ease-out
+        forwards;
+}
+
+@keyframes flashExplosao{
+
+    0%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(.1);
+    }
+
+    20%{
+        opacity:1;
+        transform:
+            translate(-50%,-50%)
+            scale(5);
+    }
+
+    45%{
+        opacity:.5;
+        transform:
+            translate(-50%,-50%)
+            scale(12);
+    }
+
+    100%{
+        opacity:0;
+        transform:
+            translate(-50%,-50%)
+            scale(18);
+    }
+}
+
+/* =========================
+   PARTICLES
+========================= */
+
+.particulaVida{
+    position:absolute;
+
+    left:50%;
+    top:50%;
+
+    width:7px;
+    height:7px;
+
+    border-radius:50%;
+
+    background:#ff3030;
+
+    box-shadow:
+        0 0 8px red,
+        0 0 15px rgba(255,0,0,.7);
+
+    opacity:0;
+    pointer-events:none;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(5){
+    animation:particula1 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(6){
+    animation:particula2 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(7){
+    animation:particula3 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(8){
+    animation:particula4 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(9){
+    animation:particula5 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(10){
+    animation:particula6 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(11){
+    animation:particula7 1s ease-out forwards;
+}
+
+.explosaoVidas.mostrar
+.particulaVida:nth-of-type(12){
+    animation:particula8 1s ease-out forwards;
+}
+
+@keyframes particula1{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(-140px,-90px) scale(0);
+    }
+}
+
+@keyframes particula2{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(-90px,-145px) scale(0);
+    }
+}
+
+@keyframes particula3{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(20px,-165px) scale(0);
+    }
+}
+
+@keyframes particula4{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(135px,-105px) scale(0);
+    }
+}
+
+@keyframes particula5{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(155px,10px) scale(0);
+    }
+}
+
+@keyframes particula6{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(85px,105px) scale(0);
+    }
+}
+
+@keyframes particula7{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(-70px,115px) scale(0);
+    }
+}
+
+@keyframes particula8{
+    0%{
+        opacity:1;
+        transform:translate(-50%,-50%) scale(1);
+    }
+    100%{
+        opacity:0;
+        transform:translate(-155px,35px) scale(0);
+    }
+}
+
+/* =========================
+   PLAYERS
+========================= */
+
+.areaJogadores{
+    width:100%;
+    display:flex;
+    justify-content:center;
+    gap:8px;
+    flex-shrink:0;
+}
+
+.jogador{
+    flex:1;
+    max-width:300px;
+    min-width:0;
+
+    text-align:center;
+
+    background:rgba(0,0,0,.20);
+
+    border-radius:9px;
+    padding:6px 3px;
+
+    transition:.25s;
+    position:relative;
+}
+
+.jogador.vez{
+    border:2px solid #00b7ff;
+
+    box-shadow:
+        0 0 8px #00b7ff,
+        inset 0 0 8px rgba(0,183,255,.2);
+}
+
+.jogador.eliminado{
+    opacity:.45;
+}
+
+.jogador h2{
+    color:gold;
+    font-size:13px;
+    margin:0 0 2px;
+
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+}
+
+.status{
+    font-size:9px;
+    font-weight:bold;
+}
+
+.vidas{
+    font-size:18px;
+    letter-spacing:2px;
+    min-height:22px;
+}
+
+.pontuacao{
+    font-size:20px;
+    font-weight:900;
+    color:white;
+    margin:4px 0;
+
+    text-shadow:
+        0 1px 3px #000,
+        0 0 5px rgba(255,255,255,.25);
+}
+
+.contador{
+    font-size:11px;
+    font-weight:bold;
+    color:#ddd;
+    margin:2px;
+}
+
+/* =========================
+   RESULT ANIMATIONS
+========================= */
+
+.jogador.resultado-vitoria{
+    animation:
+        efeitoVitoria
+        1.4s
+        ease-out;
+}
+
+.jogador.resultado-derrota{
+    animation:
+        efeitoDerrota
+        .8s
+        ease-out;
+}
+
+.jogador.resultado-empate{
+    animation:
+        efeitoEmpate
+        1s
+        ease-out;
+}
+
+.jogador.resultado-blackjack{
+    animation:
+        efeitoBlackjack
+        1.8s
+        ease-out;
+
+    z-index:20;
+}
+
+@keyframes efeitoVitoria{
+
+    0%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(255,215,0,0);
+    }
+
+    20%{
+        transform:scale(1.06);
+
+        box-shadow:
+            0 0 12px gold,
+            0 0 25px gold,
+            inset 0 0 15px rgba(255,215,0,.45);
+    }
+
+    45%{
+        transform:scale(1.02);
+
+        box-shadow:
+            0 0 22px gold,
+            0 0 40px rgba(255,215,0,.8),
+            inset 0 0 18px rgba(255,215,0,.35);
+    }
+
+    75%{
+        transform:scale(1.04);
+
+        box-shadow:
+            0 0 12px gold,
+            inset 0 0 10px rgba(255,215,0,.25);
+    }
+
+    100%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(255,215,0,0);
+    }
+}
+
+@keyframes efeitoDerrota{
+
+    0%{
+        transform:translateX(0);
+        box-shadow:0 0 0 rgba(255,0,0,0);
+    }
+
+    15%{
+        transform:translateX(-7px);
+
+        box-shadow:
+            0 0 12px red,
+            inset 0 0 12px rgba(255,0,0,.4);
+    }
+
+    30%{
+        transform:translateX(7px);
+    }
+
+    45%{
+        transform:translateX(-5px);
+
+        box-shadow:
+            0 0 20px red,
+            inset 0 0 15px rgba(255,0,0,.45);
+    }
+
+    60%{
+        transform:translateX(4px);
+    }
+
+    75%{
+        transform:translateX(-2px);
+    }
+
+    100%{
+        transform:translateX(0);
+        box-shadow:0 0 0 rgba(255,0,0,0);
+    }
+}
+
+@keyframes efeitoEmpate{
+
+    0%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(255,255,255,0);
+    }
+
+    30%{
+        transform:scale(1.04);
+
+        box-shadow:
+            0 0 12px rgba(255,255,255,.65),
+            inset 0 0 8px rgba(255,255,255,.18);
+    }
+
+    60%{
+        transform:scale(.98);
+
+        box-shadow:
+            0 0 7px rgba(255,255,255,.35);
+    }
+
+    100%{
+        transform:scale(1);
+        box-shadow:0 0 0 rgba(255,255,255,0);
+    }
+}
+
+@keyframes efeitoBlackjack{
+
+    0%{
+        transform:scale(.85) rotate(-2deg);
+        box-shadow:0 0 0 gold;
+        filter:brightness(1);
+    }
+
+    20%{
+        transform:scale(1.12) rotate(2deg);
+
+        box-shadow:
+            0 0 15px gold,
+            0 0 30px gold,
+            0 0 55px orange,
+            inset 0 0 20px rgba(255,215,0,.55);
+
+        filter:brightness(1.35);
+    }
+
+    40%{
+        transform:scale(.98) rotate(-1deg);
+    }
+
+    60%{
+        transform:scale(1.08) rotate(1deg);
+
+        box-shadow:
+            0 0 25px gold,
+            0 0 50px orange,
+            inset 0 0 18px rgba(255,215,0,.4);
+    }
+
+    80%{
+        transform:scale(1.02);
+    }
+
+    100%{
+        transform:scale(1) rotate(0);
+        box-shadow:0 0 0 gold;
+        filter:brightness(1);
+    }
+}
+
+/* =========================
+   PLAYER CARDS
+========================= */
+
+.cartas{
+    min-height:61px;
+
+    margin:3px;
+
+    display:flex;
+    flex-wrap:wrap;
+
+    justify-content:center;
+    align-items:center;
+    align-content:center;
+
+    overflow:visible;
+}
+
+.resultado{
+    min-height:19px;
+
+    font-size:12px;
+    font-weight:bold;
+
+    margin:3px;
+}
+
+.comandosJogador{
+    margin-top:2px;
+
+    color:rgba(255,255,255,.55);
+
+    font-size:8px;
+    font-weight:bold;
+}
+
+/* =========================
+   CENTER
+========================= */
+
+.centroMesa{
+    flex:1;
+    min-height:35px;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    color:rgba(255,255,255,.12);
+
+    font-size:25px;
+    font-weight:bold;
+    letter-spacing:6px;
+
+    pointer-events:none;
+
+    transition:
+        opacity .18s ease,
+        visibility .18s ease;
+}
+
+/* =========================
+   DEALER
+========================= */
+
+.areaDealer{
+    width:100%;
+
+    text-align:center;
+
+    padding:
+        6px 3px 5px;
+
+    border-top:
+        1px solid
+        rgba(255,255,255,.15);
+
+    transition:.25s;
+
+    flex-shrink:0;
+
+    min-height:120px;
+    overflow:visible;
+}
+
+.areaDealer.vezDealer{
+
+    border-top:
+        2px solid gold;
+
+    background:
+        rgba(255,215,0,.10);
+
+    box-shadow:
+        0 -5px 18px
+        rgba(255,215,0,.25);
+}
+
+.areaDealer h2{
+    color:gold;
+    font-size:15px;
+    margin:2px;
+}
+
+.dealerStatus{
+    color:#aaa;
+    font-size:9px;
+    font-weight:bold;
+}
+
+.dealerStatus.ativo{
+    color:gold;
+}
+
+.pontuacaoDealer{
+    font-size:20px;
+    font-weight:900;
+
+    color:white;
+
+    margin:2px 0;
+
+    text-shadow:
+        0 1px 3px #000,
+        0 0 5px rgba(255,255,255,.25);
+}
+
+#cartasDealer{
+    width:100%;
+
+    display:flex;
+    flex-wrap:wrap;
+
+    justify-content:center;
+    align-items:center;
+    align-content:center;
+
+    gap:3px;
+
+    min-height:61px;
+    overflow:visible;
+}
+
+#cartasDealer .carta{
+    flex:0 0 40px;
+}
+
+/* =========================
+   BLACKJACK OVERLAY
+========================= */
+
+.blackjack-overlay{
+
+    position:absolute;
+
+    left:0;
+    right:0;
+    top:50%;
+
+    transform:
+        translateY(-50%)
+        scale(.3);
+
+    z-index:300;
+
+    text-align:center;
+
+    pointer-events:none;
+    opacity:0;
+}
+
+.blackjack-overlay.mostrar{
+    animation:
+        blackjackShow
+        1.8s
+        ease-out
+        forwards;
+}
+
+.blackjack-text{
+
+    font-size:40px;
+
+    font-weight:900;
+    font-style:italic;
+
+    color:#ffd700;
+
+    text-shadow:
+        0 0 5px #fff,
+        0 0 12px gold,
+        0 0 25px gold,
+        0 0 45px orange,
+        3px 3px 0 #6b3f00;
+
+    white-space:nowrap;
+}
+
+.blackjack-sub{
+    font-size:18px;
+    font-weight:bold;
+    color:white;
+}
+
+@keyframes blackjackShow{
+
+    0%{
+        opacity:0;
+
+        transform:
+            translateY(-50%)
+            scale(.2)
+            rotate(-8deg);
+    }
+
+    15%{
+        opacity:1;
+
+        transform:
+            translateY(-50%)
+            scale(1.18)
+            rotate(2deg);
+    }
+
+    30%{
+        transform:
+            translateY(-50%)
+            scale(.95);
+    }
+
+    45%{
+        transform:
+            translateY(-50%)
+            scale(1.05);
+    }
+
+    75%{
+        opacity:1;
+
+        transform:
+            translateY(-50%)
+            scale(1);
+    }
+
+    100%{
+        opacity:0;
+
+        transform:
+            translateY(-50%)
+            scale(1.12);
+    }
+}
+
+/* =========================
+   PANEL
+========================= */
+
+.painel h2{
+    color:gold;
+    font-size:12px;
+    text-align:center;
+    margin:2px;
+}
+
+.controles{
+    display:flex;
+    justify-content:center;
+    flex-wrap:wrap;
+}
+
+.controles button{
+    background:#252525;
+    color:#aaa;
+
+    border:
+        1px solid #292929;
+
+    padding:5px 7px;
+    font-size:9px;
+}
+
+.controles .dealerCarta{
+    background:#eee;
+    color:#111;
+}
+
+.controles .nova{
+    background:#d8b500;
+    color:#111;
+}
+
+/* =========================
+   COMMENTARY BUTTONS
+========================= */
+
+.narradorControles{
+
+    width:98%;
+    max-width:700px;
+
+    margin:5px auto;
+
+    display:flex;
+    justify-content:center;
+
+    gap:3px;
+    flex-wrap:wrap;
+}
+
+.botaoNarrador{
+
+    background:#111;
+    color:#888;
+
+    border:
+        1px solid #252525;
+
+    border-radius:5px;
+
+    padding:5px 7px;
+
+    font-size:8px;
+    font-weight:bold;
+
+    opacity:.85;
+}
+
+.botaoNarrador:active{
+    transform:scale(.95);
+}
+
+/* =========================
+   HISTORY
+========================= */
+
+.historico h2{
+    color:gold;
+    font-size:12px;
+    margin:2px;
+}
+
+#historico{
+    max-height:90px;
+    overflow-y:auto;
+}
+
+.evento{
+    font-size:9px;
+    padding:3px;
+
+    border-bottom:
+        1px solid #222;
+
+    color:#aaa;
+}
+
+/* =========================
+   MOBILE
+========================= */
+
+@media(max-width:500px){
+
+    .mesa{
+        height:430px;
+        border-width:3px;
+        padding:7px;
+    }
+
+    .pontuacao{
+        font-size:18px;
+    }
+
+    .pontuacaoDealer{
+        font-size:18px;
+    }
+
+    .contador{
+        font-size:10px;
+    }
+
+    .carta{
+        width:35px;
+        height:50px;
+        font-size:13px;
+    }
+
+    .naipe{
+        font-size:10px;
+        line-height:11px;
+    }
+
+    #cartasDealer .carta{
+        flex-basis:35px;
+    }
+
+    .vidas{
+        font-size:16px;
+    }
+
+    .blackjack-text{
+        font-size:30px;
+    }
+
+    .blackjack-sub{
+        font-size:14px;
+    }
+
+    #narracaoTexto{
+        font-size:14px;
+    }
+
+    .areaDealer{
+        min-height:112px;
+    }
+}
+
+/* =========================
+   VERY SMALL PHONES
+========================= */
+
+@media(max-width:360px){
+
+    .mesa{
+        height:440px;
+    }
+
+    .jogador{
+        padding:4px 1px;
+    }
+
+    .jogador h2{
+        font-size:11px;
+    }
+
+    .carta{
+        width:31px;
+        height:46px;
+        font-size:11px;
+    }
+
+    #cartasDealer .carta{
+        flex-basis:31px;
+    }
+
+    .naipe{
+        font-size:9px;
+    }
+
+}
+
+/* =========================
+   NATIVE FULLSCREEN
+========================= */
+
+:fullscreen{
+    background:#050505;
+}
+
+:-webkit-full-screen{
+    background:#050505;
+}
+
+body.fullscreen-active{
+    padding-top:env(safe-area-inset-top);
+    padding-bottom:env(safe-area-inset-bottom);
+}
+
+</style>
 </head>
 
 <body>
 
-  <!-- ===== TODO O SEU HTML AQUI ===== -->
-  <!-- (mantenha exatamente como estava, pois os IDs e classes são os mesmos) -->
+<!-- FULL SCREEN -->
 
-  <div class="fullscreen-control">
-    <button id="fullscreenButton" class="fullscreen-button" onclick="alternarTelaCheia()">⛶</button>
-  </div>
+<div class="fullscreen-control">
 
-  <div class="topo">
+    <button
+        id="fullscreenButton"
+        class="fullscreen-button"
+        onclick="alternarTelaCheia()"
+        aria-label="Fullscreen"
+        title="Fullscreen"
+    >
+        ⛶
+    </button>
+
+</div>
+
+
+<div class="topo">
+
     <h1>🃏 BLACKJACK LIVE</h1>
+
     <p>🎙️ Blackjack Table</p>
-  </div>
 
-  <div class="entrada">
-    <input id="nomeEntrada" placeholder="Player Name">
-    <button onclick="entrar()">➕ JOIN</button>
-  </div>
+</div>
 
-  <div class="statusMesa">
-    <div class="statusTitulo">TABLE STATUS</div>
-    <div id="statusMesa" class="statusAtual">🟢 WAITING FOR PLAYERS</div>
-  </div>
 
-  <div class="narracao">
-    <div class="narracaoTitulo">🎙️ COMMENTARY</div>
-    <div id="narracaoTexto">Waiting for players...</div>
-  </div>
+<div class="entrada">
 
-  <div id="mesa" class="mesa">
-    <div id="mensagemMesa" class="mensagemMesa"></div>
+    <input
+        id="nomeEntrada"
+        placeholder="Player Name"
+    >
 
-    <div id="explosaoVidas" class="explosaoVidas">
-      <div class="coracaoExplosao">❤️</div>
-      <div class="coracaoExplosao">❤️</div>
-      <div class="coracaoExplosao">❤️</div>
-      <div class="flashExplosao"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
-      <div class="particulaVida"></div>
+    <button onclick="entrar()">
+        ➕ JOIN
+    </button>
+
+</div>
+
+
+<div class="statusMesa">
+
+    <div class="statusTitulo">
+        TABLE STATUS
     </div>
 
-    <div id="blackjackOverlay" class="blackjack-overlay">
-      <div id="blackjackTexto" class="blackjack-text">🃏 BLACKJACK!</div>
-      <div id="blackjackSub" class="blackjack-sub">21 POINTS</div>
+    <div
+        id="statusMesa"
+        class="statusAtual"
+    >
+        🟢 WAITING FOR PLAYERS
     </div>
 
-    <div id="areaCartas" class="areaCartas">
-      <div class="areaJogadores">
-        <!-- PLAYER 1 -->
-        <div id="box1" class="jogador">
-          <h2 id="titulo1">👤 SEAT 1</h2>
-          <div id="status1" class="status">⚪ OPEN</div>
-          <div id="vidas1" class="vidas">❤️❤️❤️</div>
-          <div id="pontuacao1" class="pontuacao">0 points</div>
-          <div id="contador1" class="contador">🃏 0 cards</div>
-          <div id="cartas1" class="cartas"></div>
-          <button onclick="cartaJogador(1)">🃏 HIT</button>
-          <button onclick="parar(1)">✋ STAND</button>
-          <button onclick="remover(1)" style="background:#8b1e1e;color:white;">❌</button>
-          <div class="comandosJogador">1 = Hit • 2 = Stand</div>
-          <div id="resultado1" class="resultado"></div>
+</div>
+
+
+<div class="narracao">
+
+    <div class="narracaoTitulo">
+        🎙️ COMMENTARY
+    </div>
+
+    <div id="narracaoTexto">
+        Waiting for players...
+    </div>
+
+</div>
+
+
+<div
+    id="mesa"
+    class="mesa"
+>
+
+    <div
+        id="mensagemMesa"
+        class="mensagemMesa"
+    ></div>
+
+
+    <div
+        id="explosaoVidas"
+        class="explosaoVidas"
+    >
+
+        <div class="coracaoExplosao">
+            ❤️
         </div>
-        <!-- PLAYER 2 -->
-        <div id="box2" class="jogador">
-          <h2 id="titulo2">👤 SEAT 2</h2>
-          <div id="status2" class="status">⚪ OPEN</div>
-          <div id="vidas2" class="vidas">❤️❤️❤️</div>
-          <div id="pontuacao2" class="pontuacao">0 points</div>
-          <div id="contador2" class="contador">🃏 0 cards</div>
-          <div id="cartas2" class="cartas"></div>
-          <button onclick="cartaJogador(2)">🃏 HIT</button>
-          <button onclick="parar(2)">✋ STAND</button>
-          <button onclick="remover(2)" style="background:#8b1e1e;color:white;">❌</button>
-          <div class="comandosJogador">1 = Hit • 2 = Stand</div>
-          <div id="resultado2" class="resultado"></div>
+
+        <div class="coracaoExplosao">
+            ❤️
         </div>
-      </div>
-      <div class="centroMesa">♠ ♥ ♣ ♦</div>
-      <!-- DEALER -->
-      <div id="areaDealer" class="areaDealer">
-        <h2>🎩 DEALER</h2>
-        <div id="dealerStatus" class="dealerStatus">⚪ WAITING</div>
-        <div id="pontuacaoDealer" class="pontuacaoDealer">0 points</div>
-        <div id="cartasDealer" class="cartas"></div>
-      </div>
+
+        <div class="coracaoExplosao">
+            ❤️
+        </div>
+
+        <div class="flashExplosao"></div>
+
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+        <div class="particulaVida"></div>
+
     </div>
-  </div>
 
-  <!-- COMMENTARY BUTTONS -->
-  <div class="narradorControles">
-    <button class="botaoNarrador" onclick="mensagemJogador()">🎙️ PLAYER</button>
-    <button class="botaoNarrador" onclick="mensagemComandos()">💬 CHAT COMMANDS</button>
-    <button class="botaoNarrador" onclick="mensagemLike()">❤️ LEAVE A LIKE</button>
-    <button class="botaoNarrador" onclick="mensagemMeta()">🎯 GOAL $15</button>
-    <button class="botaoNarrador" onclick="mensagemRosas()">🌹 200 ROSES</button>
-    <button class="botaoNarrador" onclick="mensagemVagas()">OPEN SEATS</button>
-    <button class="botaoNarrador" onclick="mensagemAgradecimento()">❤️ THANK YOU</button>
-    <button class="botaoNarrador" onclick="mensagemObrigado()">❤️ THANKS</button>
-  </div>
 
-  <!-- DEALER CONTROL -->
-  <div class="painel">
-    <h2>🎩 DEALER CONTROL</h2>
+    <div
+        id="blackjackOverlay"
+        class="blackjack-overlay"
+    >
+
+        <div
+            id="blackjackTexto"
+            class="blackjack-text"
+        >
+            🃏 BLACKJACK!
+        </div>
+
+        <div
+            id="blackjackSub"
+            class="blackjack-sub"
+        >
+            21 POINTS
+        </div>
+
+    </div>
+
+
+    <div
+        id="areaCartas"
+        class="areaCartas"
+    >
+
+        <div class="areaJogadores">
+
+            <!-- PLAYER 1 -->
+
+            <div
+                id="box1"
+                class="jogador"
+            >
+
+                <h2 id="titulo1">
+                    👤 SEAT 1
+                </h2>
+
+                <div
+                    id="status1"
+                    class="status"
+                >
+                    ⚪ OPEN
+                </div>
+
+                <div
+                    id="vidas1"
+                    class="vidas"
+                >
+                    ❤️❤️❤️
+                </div>
+
+                <div
+                    id="pontuacao1"
+                    class="pontuacao"
+                >
+                    0 points
+                </div>
+
+                <div
+                    id="contador1"
+                    class="contador"
+                >
+                    🃏 0 cards
+                </div>
+
+                <div
+                    id="cartas1"
+                    class="cartas"
+                ></div>
+
+                <button onclick="cartaJogador(1)">
+                    🃏 HIT
+                </button>
+
+                <button onclick="parar(1)">
+                    ✋ STAND
+                </button>
+
+                <button
+                    onclick="remover(1)"
+                    style="
+                        background:#8b1e1e;
+                        color:white;
+                    "
+                >
+                    ❌
+                </button>
+
+                <div class="comandosJogador">
+                    1 = Hit • 2 = Stand
+                </div>
+
+                <div
+                    id="resultado1"
+                    class="resultado"
+                ></div>
+
+            </div>
+
+
+            <!-- PLAYER 2 -->
+
+            <div
+                id="box2"
+                class="jogador"
+            >
+
+                <h2 id="titulo2">
+                    👤 SEAT 2
+                </h2>
+
+                <div
+                    id="status2"
+                    class="status"
+                >
+                    ⚪ OPEN
+                </div>
+
+                <div
+                    id="vidas2"
+                    class="vidas"
+                >
+                    ❤️❤️❤️
+                </div>
+
+                <div
+                    id="pontuacao2"
+                    class="pontuacao"
+                >
+                    0 points
+                </div>
+
+                <div
+                    id="contador2"
+                    class="contador"
+                >
+                    🃏 0 cards
+                </div>
+
+                <div
+                    id="cartas2"
+                    class="cartas"
+                ></div>
+
+                <button onclick="cartaJogador(2)">
+                    🃏 HIT
+                </button>
+
+                <button onclick="parar(2)">
+                    ✋ STAND
+                </button>
+
+                <button
+                    onclick="remover(2)"
+                    style="
+                        background:#8b1e1e;
+                        color:white;
+                    "
+                >
+                    ❌
+                </button>
+
+                <div class="comandosJogador">
+                    1 = Hit • 2 = Stand
+                </div>
+
+                <div
+                    id="resultado2"
+                    class="resultado"
+                ></div>
+
+            </div>
+
+        </div>
+
+
+        <div class="centroMesa">
+            ♠ ♥ ♣ ♦
+        </div>
+
+
+        <!-- DEALER -->
+
+        <div
+            id="areaDealer"
+            class="areaDealer"
+        >
+
+            <h2>
+                🎩 DEALER
+            </h2>
+
+            <div
+                id="dealerStatus"
+                class="dealerStatus"
+            >
+                ⚪ WAITING
+            </div>
+
+            <div
+                id="pontuacaoDealer"
+                class="pontuacaoDealer"
+            >
+                0 points
+            </div>
+
+            <div
+                id="cartasDealer"
+                class="cartas"
+            ></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- COMMENTARY BUTTONS -->
+
+<div class="narradorControles">
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemJogador()"
+    >
+        🎙️ PLAYER
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemComandos()"
+    >
+        💬 CHAT COMMANDS
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemLike()"
+    >
+        ❤️ LEAVE A LIKE
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemMeta()"
+    >
+        🎯 GOAL $15
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemRosas()"
+    >
+        🌹 200 ROSES
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemVagas()"
+    >
+        OPEN SEATS
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemAgradecimento()"
+    >
+        ❤️ THANK YOU
+    </button>
+
+    <button
+        class="botaoNarrador"
+        onclick="mensagemObrigado()"
+    >
+        ❤️ THANKS
+    </button>
+
+</div>
+
+
+<!-- DEALER CONTROL -->
+
+<div class="painel">
+
+    <h2>
+        🎩 DEALER CONTROL
+    </h2>
+
     <div class="controles">
-      <button class="dealerCarta" onclick="cartaDealer()">🃏 HIT</button>
-      <button onclick="revelarDealer()">👁️ REVEAL</button>
-      <button onclick="dealerAutomatico()">🤖 AUTO DEALER</button>
-      <button class="nova" onclick="novaRodada()">🔄 NEW ROUND</button>
-    </div>
-  </div>
 
-  <!-- HISTORY -->
-  <div class="historico">
-    <h2>📜 HISTORY</h2>
+        <button
+            class="dealerCarta"
+            onclick="cartaDealer()"
+        >
+            🃏 HIT
+        </button>
+
+        <button onclick="revelarDealer()">
+            👁️ REVEAL
+        </button>
+
+        <button onclick="dealerAutomatico()">
+            🤖 AUTO DEALER
+        </button>
+
+        <button
+            class="nova"
+            onclick="novaRodada()"
+        >
+            🔄 NEW ROUND
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- HISTORY -->
+
+<div class="historico">
+
+    <h2>
+        📜 HISTORY
+    </h2>
+
     <div id="historico">
-      <div class="evento">🎙️ Table started.</div>
+
+        <div class="evento">
+            🎙️ Table started.
+        </div>
+
     </div>
-  </div>
 
-  <script>
-    // ============================================================
-    // CLIENTE SSE + ANIMAÇÕES DE VIDA
-    // ============================================================
+</div>
 
-    // ===== CONEXÃO SSE =====
-    const eventSource = new EventSource('/events');
-    let gameState = {
-      phase: 'waiting',
-      players: [],
-      dealerHand: [],
-      dealerScore: 0,
-      currentTurn: null,
-      maxPlayers: 2,
-      messages: []
-    };
 
-    // ===== CONTROLE DE ANIMAÇÕES =====
-    let ultimoEstadoVidas = {};
+<script>
+// ============================================================
+// CLIENTE SSE COM ANIMAÇÕES DE VIDA COMPLETO
+// ============================================================
 
-    eventSource.onmessage = function(event) {
-      const data = JSON.parse(event.data);
-      if (data.type === 'state') {
-        const novoEstado = data.data;
-        // Verifica mudanças nas vidas ANTES de atualizar
-        verificarMudancasVidas(novoEstado);
-        gameState = novoEstado;
-        atualizarInterface(gameState);
-      } else if (data.type === 'message') {
-        adicionarHistorico(data.data);
-        narrar(data.data);
-      }
-    };
+// ===== CONEXÃO SSE =====
+const eventSource = new EventSource('/events');
+let gameState = {
+  phase: 'waiting',
+  players: [],
+  dealerHand: [],
+  dealerScore: 0,
+  currentTurn: null,
+  maxPlayers: 2,
+  messages: []
+};
 
-    eventSource.onerror = function() {
-      console.log('⚠️ SSE desconectado. Tentando reconectar...');
-    };
+// ===== CONTROLE DE ANIMAÇÕES =====
+let ultimoEstadoVidas = {};
 
-    // ============================================================
-    // FUNÇÃO: VERIFICAR MUDANÇAS NAS VIDAS
-    // ============================================================
+eventSource.onmessage = function(event) {
+  const data = JSON.parse(event.data);
+  if (data.type === 'state') {
+    const novoEstado = data.data;
+    // Verifica mudanças nas vidas ANTES de atualizar
+    verificarMudancasVidas(novoEstado);
+    gameState = novoEstado;
+    atualizarInterface(gameState);
+  } else if (data.type === 'message') {
+    adicionarHistorico(data.data);
+    narrar(data.data);
+  }
+};
 
-    function verificarMudancasVidas(novoEstado) {
-      // Para cada jogador no novo estado
-      for (const player of novoEstado.players) {
-        const id = player.id;
-        const vidasAtuais = player.lives;
+eventSource.onerror = function() {
+  console.log('⚠️ SSE desconectado. Tentando reconectar...');
+};
 
-        // Se não tinha registro anterior, cria
-        if (!ultimoEstadoVidas[id]) {
-          ultimoEstadoVidas[id] = vidasAtuais;
-          continue;
-        }
+// ============================================================
+// FUNÇÃO: VERIFICAR MUDANÇAS NAS VIDAS
+// ============================================================
 
-        const vidasAnteriores = ultimoEstadoVidas[id];
+function verificarMudancasVidas(novoEstado) {
+  // Para cada jogador no novo estado
+  for (const player of novoEstado.players) {
+    const id = player.id;
+    const vidasAtuais = player.lives;
 
-        // Se perdeu vida (diminuiu)
-        if (vidasAtuais < vidasAnteriores) {
-          console.log(`💔 @${player.nickname} perdeu uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
-          // Toca animação de perda de vida
-          animarPerdaVida(player.nickname);
+    // Se não tinha registro anterior, cria
+    if (!ultimoEstadoVidas[id]) {
+      ultimoEstadoVidas[id] = vidasAtuais;
+      continue;
+    }
 
-          // Se perdeu todas as vidas
-          if (vidasAtuais <= 0) {
-            console.log(`💀 @${player.nickname} foi ELIMINADO!`);
-            animarExplosaoVidas();
-            mostrarMensagemMesa(`💀 @${player.nickname} FOI ELIMINADO!`, 4000);
-          }
-        }
+    const vidasAnteriores = ultimoEstadoVidas[id];
 
-        // Se ganhou vida (aumentou)
-        if (vidasAtuais > vidasAnteriores) {
-          console.log(`❤️ @${player.nickname} ganhou uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
-          animarGanhoVida(player.nickname);
-        }
+    // Se perdeu vida (diminuiu)
+    if (vidasAtuais < vidasAnteriores) {
+      console.log(`💔 @${player.nickname} perdeu uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
+      animarPerdaVida(player.nickname);
 
-        // Atualiza o registro
-        ultimoEstadoVidas[id] = vidasAtuais;
-      }
-
-      // Remove jogadores que saíram
-      const idsAtivos = novoEstado.players.map(p => p.id);
-      for (const id of Object.keys(ultimoEstadoVidas)) {
-        if (!idsAtivos.includes(id)) {
-          delete ultimoEstadoVidas[id];
-        }
+      // Se perdeu todas as vidas
+      if (vidasAtuais <= 0) {
+        console.log(`💀 @${player.nickname} foi ELIMINADO!`);
+        animarExplosaoVidas();
+        mostrarMensagemMesa(`💀 @${player.nickname} FOI ELIMINADO!`, 4000);
       }
     }
 
-    // ============================================================
-    // ANIMAÇÕES
-    // ============================================================
-
-    function animarPerdaVida(nickname) {
-      // Mostra mensagem na mesa
-      mostrarMensagemMesa(`💔 @${nickname} PERDEU UMA VIDA!`, 2000);
-      // Pode adicionar efeito visual extra aqui
+    // Se ganhou vida (aumentou)
+    if (vidasAtuais > vidasAnteriores) {
+      console.log(`❤️ @${player.nickname} ganhou uma vida! ${vidasAnteriores} → ${vidasAtuais}`);
+      animarGanhoVida(player.nickname);
     }
 
-    function animarGanhoVida(nickname) {
-      mostrarMensagemMesa(`❤️ @${nickname} GANHOU UMA VIDA!`, 2000);
+    // Atualiza o registro
+    ultimoEstadoVidas[id] = vidasAtuais;
+  }
+
+  // Remove jogadores que saíram
+  const idsAtivos = novoEstado.players.map(p => p.id);
+  for (const id of Object.keys(ultimoEstadoVidas)) {
+    if (!idsAtivos.includes(id)) {
+      delete ultimoEstadoVidas[id];
     }
+  }
+}
 
-    function animarExplosaoVidas() {
-      const explosao = document.getElementById('explosaoVidas');
-      explosao.classList.remove('mostrar');
-      void explosao.offsetWidth;
-      explosao.classList.add('mostrar');
-      setTimeout(() => {
-        explosao.classList.remove('mostrar');
-      }, 1900);
-    }
+// ============================================================
+// ANIMAÇÕES
+// ============================================================
 
-    // ============================================================
-    // FUNÇÃO: ATUALIZAR INTERFACE (com vidas)
-    // ============================================================
+function animarPerdaVida(nickname) {
+  mostrarMensagemMesa(`💔 @${nickname} PERDEU UMA VIDA!`, 2000);
+}
 
-    function atualizarInterface(game) {
-      // Atualiza status da mesa
-      const statusMap = {
-        'waiting': '🟢 WAITING FOR PLAYERS',
-        'dealing': '🃏 DEALING CARDS...',
-        'players': '🎯 PLAYERS TURN',
-        'dealer': '🎩 DEALER TURN',
-        'result': '🏁 ROUND OVER'
-      };
-      document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase.toUpperCase();
+function animarGanhoVida(nickname) {
+  mostrarMensagemMesa(`❤️ @${nickname} GANHOU UMA VIDA!`, 2000);
+}
 
-      // Atualiza dealer
-      const dealerArea = document.getElementById('cartasDealer');
-      dealerArea.innerHTML = game.dealerHand.map(c => htmlCarta(c)).join('');
-      document.getElementById('pontuacaoDealer').innerHTML = game.dealerScore + ' points';
-      if (game.phase === 'dealer') {
-        document.getElementById('dealerStatus').innerHTML = '🟡 DEALER\'S TURN';
-        document.getElementById('dealerStatus').classList.add('ativo');
-        document.getElementById('areaDealer').classList.add('vezDealer');
+function animarExplosaoVidas() {
+  const explosao = document.getElementById('explosaoVidas');
+  explosao.classList.remove('mostrar');
+  void explosao.offsetWidth;
+  explosao.classList.add('mostrar');
+  setTimeout(() => {
+    explosao.classList.remove('mostrar');
+  }, 1900);
+}
+
+// ============================================================
+// FUNÇÃO: ATUALIZAR INTERFACE
+// ============================================================
+
+function atualizarInterface(game) {
+  // Atualiza status da mesa
+  const statusMap = {
+    'waiting': '🟢 WAITING FOR PLAYERS',
+    'dealing': '🃏 DEALING CARDS...',
+    'players': '🎯 PLAYERS TURN',
+    'dealer': '🎩 DEALER TURN',
+    'result': '🏁 ROUND OVER'
+  };
+  document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase.toUpperCase();
+
+  // Atualiza dealer
+  const dealerArea = document.getElementById('cartasDealer');
+  dealerArea.innerHTML = game.dealerHand.map(c => htmlCarta(c)).join('');
+  document.getElementById('pontuacaoDealer').innerHTML = game.dealerScore + ' points';
+  if (game.phase === 'dealer') {
+    document.getElementById('dealerStatus').innerHTML = '🟡 DEALER\'S TURN';
+    document.getElementById('dealerStatus').classList.add('ativo');
+    document.getElementById('areaDealer').classList.add('vezDealer');
+  } else {
+    document.getElementById('dealerStatus').innerHTML = '⚪ WAITING';
+    document.getElementById('dealerStatus').classList.remove('ativo');
+    document.getElementById('areaDealer').classList.remove('vezDealer');
+  }
+
+  // Atualiza jogadores (2 vagas fixas)
+  const seats = [1, 2];
+  seats.forEach((seat, index) => {
+    const player = game.players[index];
+    const box = document.getElementById('box' + seat);
+    const titulo = document.getElementById('titulo' + seat);
+    const status = document.getElementById('status' + seat);
+    const vidas = document.getElementById('vidas' + seat);
+    const pontuacao = document.getElementById('pontuacao' + seat);
+    const contador = document.getElementById('contador' + seat);
+    const cartas = document.getElementById('cartas' + seat);
+    const resultado = document.getElementById('resultado' + seat);
+
+    if (player) {
+      titulo.innerHTML = '👤 ' + player.nickname;
+      vidas.innerHTML = htmlVidas(player.lives);
+      pontuacao.innerHTML = player.score + ' points';
+      contador.innerHTML = '🃏 ' + player.hand.length + ' cards';
+      cartas.innerHTML = player.hand.map(c => htmlCarta(c)).join('');
+
+      if (player.lives > 0) {
+        box.classList.remove('eliminado');
       } else {
-        document.getElementById('dealerStatus').innerHTML = '⚪ WAITING';
-        document.getElementById('dealerStatus').classList.remove('ativo');
-        document.getElementById('areaDealer').classList.remove('vezDealer');
+        box.classList.add('eliminado');
       }
 
-      // Atualiza jogadores (2 vagas fixas)
-      const seats = [1, 2];
-      seats.forEach((seat, index) => {
-        const player = game.players[index];
-        const box = document.getElementById('box' + seat);
-        const titulo = document.getElementById('titulo' + seat);
-        const status = document.getElementById('status' + seat);
-        const vidas = document.getElementById('vidas' + seat);
-        const pontuacao = document.getElementById('pontuacao' + seat);
-        const contador = document.getElementById('contador' + seat);
-        const cartas = document.getElementById('cartas' + seat);
-        const resultado = document.getElementById('resultado' + seat);
-
-        if (player) {
-          titulo.innerHTML = '👤 ' + player.nickname;
-          // 🔥 ATUALIZA AS VIDAS CORRETAMENTE
-          vidas.innerHTML = htmlVidas(player.lives);
-          pontuacao.innerHTML = player.score + ' points';
-          contador.innerHTML = '🃏 ' + player.hand.length + ' cards';
-          cartas.innerHTML = player.hand.map(c => htmlCarta(c)).join('');
-
-          // Remove classe de eliminado se tiver vidas
-          if (player.lives > 0) {
-            box.classList.remove('eliminado');
-          } else {
-            box.classList.add('eliminado');
-          }
-
-          if (player.busted) {
-            status.innerHTML = '💥 BUSTED';
-            resultado.innerHTML = '💀 LOST!';
-          } else if (player.stand) {
-            status.innerHTML = '🛑 STAND';
-            resultado.innerHTML = '✅ ' + player.score + ' pts';
-          } else if (game.currentTurn === player.id && game.phase === 'players') {
-            status.innerHTML = '🔵 YOUR TURN';
-            box.classList.add('vez');
-          } else {
-            status.innerHTML = '🟡 WAITING';
-            box.classList.remove('vez');
-          }
-
-          if (player.blackjack) {
-            status.innerHTML = '🃏 BLACKJACK!';
-            resultado.innerHTML = '🃏 BLACKJACK!';
-            mostrarBlackjack(player.nickname, player.score);
-          }
-
-        } else {
-          titulo.innerHTML = '👤 SEAT ' + seat;
-          status.innerHTML = '⚪ OPEN';
-          vidas.innerHTML = htmlVidas(3);
-          pontuacao.innerHTML = '0 points';
-          contador.innerHTML = '🃏 0 cards';
-          cartas.innerHTML = '';
-          resultado.innerHTML = '';
-          box.classList.remove('vez', 'eliminado');
-        }
-      });
-    }
-
-    // ============================================================
-    // FUNÇÕES AUXILIARES
-    // ============================================================
-
-    function htmlCarta(carta) {
-      return `<span class="carta">${carta.value}<span class="naipe">${carta.suit}</span></span>`;
-    }
-
-    function htmlVidas(vidas) {
-      let html = '';
-      for (let i = 0; i < 3; i++) {
-        html += i < vidas ? '❤️' : '🖤';
+      if (player.busted) {
+        status.innerHTML = '💥 BUSTED';
+        resultado.innerHTML = '💀 LOST!';
+      } else if (player.stand) {
+        status.innerHTML = '🛑 STAND';
+        resultado.innerHTML = '✅ ' + player.score + ' pts';
+      } else if (game.currentTurn === player.id && game.phase === 'players') {
+        status.innerHTML = '🔵 YOUR TURN';
+        box.classList.add('vez');
+      } else {
+        status.innerHTML = '🟡 WAITING';
+        box.classList.remove('vez');
       }
-      return html;
+
+      if (player.blackjack) {
+        status.innerHTML = '🃏 BLACKJACK!';
+        resultado.innerHTML = '🃏 BLACKJACK!';
+        mostrarBlackjack(player.nickname, player.score);
+      }
+
+    } else {
+      titulo.innerHTML = '👤 SEAT ' + seat;
+      status.innerHTML = '⚪ OPEN';
+      vidas.innerHTML = htmlVidas(3);
+      pontuacao.innerHTML = '0 points';
+      contador.innerHTML = '🃏 0 cards';
+      cartas.innerHTML = '';
+      resultado.innerHTML = '';
+      box.classList.remove('vez', 'eliminado');
     }
+  });
+}
 
-    function narrar(texto) {
-      document.getElementById('narracaoTexto').innerHTML = '🎙️ ' + texto;
-    }
+// ============================================================
+// FUNÇÕES AUXILIARES
+// ============================================================
 
-    function adicionarHistorico(texto) {
-      const div = document.createElement('div');
-      div.className = 'evento';
-      div.innerHTML = texto;
-      document.getElementById('historico').prepend(div);
-    }
+function htmlCarta(carta) {
+  return `<span class="carta">${carta.value}<span class="naipe">${carta.suit}</span></span>`;
+}
 
-    function mostrarBlackjack(nome, pontos) {
-      const overlay = document.getElementById('blackjackOverlay');
-      document.getElementById('blackjackTexto').innerHTML = '🃏 BLACKJACK!';
-      document.getElementById('blackjackSub').innerHTML = '👤 ' + nome + ' • ' + pontos + ' POINTS';
-      overlay.classList.remove('mostrar');
-      void overlay.offsetWidth;
-      overlay.classList.add('mostrar');
-      setTimeout(() => overlay.classList.remove('mostrar'), 2000);
-    }
+function htmlVidas(vidas) {
+  let html = '';
+  for (let i = 0; i < 3; i++) {
+    html += i < vidas ? '❤️' : '🖤';
+  }
+  return html;
+}
 
-    // ============================================================
-    // MENSAGENS DA MESA
-    // ============================================================
+function narrar(texto) {
+  document.getElementById('narracaoTexto').innerHTML = '🎙️ ' + texto;
+}
 
-    let mensagemTimer = null;
-    let mensagemFinalTimer = null;
+function adicionarHistorico(texto) {
+  const div = document.createElement('div');
+  div.className = 'evento';
+  div.innerHTML = texto;
+  document.getElementById('historico').prepend(div);
+}
 
-    function mostrarMensagemMesa(texto, duracao = 3500) {
-      const mensagem = document.getElementById('mensagemMesa');
-      const mesa = document.getElementById('mesa');
-      if (mensagemTimer) clearTimeout(mensagemTimer);
-      if (mensagemFinalTimer) clearTimeout(mensagemFinalTimer);
-      mensagem.classList.remove('mostrar', 'saindo');
-      mesa.classList.remove('falaAtiva');
+function mostrarBlackjack(nome, pontos) {
+  const overlay = document.getElementById('blackjackOverlay');
+  document.getElementById('blackjackTexto').innerHTML = '🃏 BLACKJACK!';
+  document.getElementById('blackjackSub').innerHTML = '👤 ' + nome + ' • ' + pontos + ' POINTS';
+  overlay.classList.remove('mostrar');
+  void overlay.offsetWidth;
+  overlay.classList.add('mostrar');
+  setTimeout(() => overlay.classList.remove('mostrar'), 2000);
+}
+
+// ============================================================
+// MENSAGENS DA MESA
+// ============================================================
+
+let mensagemTimer = null;
+let mensagemFinalTimer = null;
+
+function mostrarMensagemMesa(texto, duracao = 3500) {
+  const mensagem = document.getElementById('mensagemMesa');
+  const mesa = document.getElementById('mesa');
+  if (mensagemTimer) clearTimeout(mensagemTimer);
+  if (mensagemFinalTimer) clearTimeout(mensagemFinalTimer);
+  mensagem.classList.remove('mostrar', 'saindo');
+  mesa.classList.remove('falaAtiva');
+  mensagem.innerHTML = '';
+  void mensagem.offsetWidth;
+  mensagem.innerHTML = texto;
+  mesa.classList.add('falaAtiva');
+  mensagem.classList.add('mostrar');
+  mensagemTimer = setTimeout(() => {
+    mensagem.classList.remove('mostrar');
+    mensagem.classList.add('saindo');
+    mensagemFinalTimer = setTimeout(() => {
+      mensagem.classList.remove('saindo');
       mensagem.innerHTML = '';
-      void mensagem.offsetWidth;
-      mensagem.innerHTML = texto;
-      mesa.classList.add('falaAtiva');
-      mensagem.classList.add('mostrar');
-      mensagemTimer = setTimeout(() => {
-        mensagem.classList.remove('mostrar');
-        mensagem.classList.add('saindo');
-        mensagemFinalTimer = setTimeout(() => {
-          mensagem.classList.remove('saindo');
-          mensagem.innerHTML = '';
-          mesa.classList.remove('falaAtiva');
-          mensagemTimer = null;
-          mensagemFinalTimer = null;
-        }, 300);
-      }, duracao);
-    }
+      mesa.classList.remove('falaAtiva');
+      mensagemTimer = null;
+      mensagemFinalTimer = null;
+    }, 300);
+  }, duracao);
+}
 
-    // ============================================================
-    // BOTÕES DO FRONTEND (enviam comandos para o servidor)
-    // ============================================================
+// ============================================================
+// BOTÕES DO FRONTEND
+// ============================================================
 
-    function cartaJogador(seat) {
-      const player = gameState.players[seat - 1];
-      if (!player) {
-        alert('Nenhum jogador nessa posição.');
-        return;
-      }
-      if (gameState.currentTurn !== player.id) {
-        alert('⏳ Não é a vez deste jogador.');
-        return;
-      }
-      fetch('/game-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'hit', userId: player.id })
-      }).catch(err => console.error('Erro no HIT:', err));
-    }
+function cartaJogador(seat) {
+  const player = gameState.players[seat - 1];
+  if (!player) {
+    alert('Nenhum jogador nessa posição.');
+    return;
+  }
+  if (gameState.currentTurn !== player.id) {
+    alert('⏳ Não é a vez deste jogador.');
+    return;
+  }
+  fetch('/game-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'hit', userId: player.id })
+  }).catch(err => console.error('Erro no HIT:', err));
+}
 
-    function parar(seat) {
-      const player = gameState.players[seat - 1];
-      if (!player) {
-        alert('Nenhum jogador nessa posição.');
-        return;
-      }
-      if (gameState.currentTurn !== player.id) {
-        alert('⏳ Não é a vez deste jogador.');
-        return;
-      }
-      fetch('/game-state', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'stand', userId: player.id })
-      }).catch(err => console.error('Erro no STAND:', err));
-    }
+function parar(seat) {
+  const player = gameState.players[seat - 1];
+  if (!player) {
+    alert('Nenhum jogador nessa posição.');
+    return;
+  }
+  if (gameState.currentTurn !== player.id) {
+    alert('⏳ Não é a vez deste jogador.');
+    return;
+  }
+  fetch('/game-state', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'stand', userId: player.id })
+  }).catch(err => console.error('Erro no STAND:', err));
+}
 
-    function remover(seat) {
-      alert('Para remover um jogador, recarregue a página.');
-      location.reload();
-    }
+function remover(seat) {
+  alert('Para remover um jogador, recarregue a página.');
+  location.reload();
+}
 
-    function entrar() {
-      const input = document.getElementById('nomeEntrada');
-      const nome = input.value.trim();
-      if (!nome) {
-        alert('Digite um nome para teste local.');
-        return;
-      }
-      alert('Para entrar, use o comando BLACKJACK no chat do TikTok.');
-      input.value = '';
-    }
+function entrar() {
+  const input = document.getElementById('nomeEntrada');
+  const nome = input.value.trim();
+  if (!nome) {
+    alert('Digite um nome para teste local.');
+    return;
+  }
+  alert('Para entrar, use o comando BLACKJACK no chat do TikTok.');
+  input.value = '';
+}
 
-    // ============================================================
-    // NARRAÇÃO (botões)
-    // ============================================================
+// ============================================================
+// NARRAÇÃO (botões)
+// ============================================================
 
-    function mensagemJogador() { mostrarMensagemMesa('🃏 HIT OR STAND?'); }
+function mensagemJogador() { mostrarMensagemMesa('🃏 HIT OR STAND?'); }
+function mensagemComandos() { mostrarMensagemMesa('WHEN IT\'S YOUR TURN, USE THE CHAT:<br>1️⃣ HIT → GET ANOTHER CARD.<br>2️⃣ STAND → STOP AND KEEP YOUR HAND.', 5000); }
+function mensagemLike() { mostrarMensagemMesa('❤️ LEAVE A LIKE!<br>I HOPE YOU\'RE ENJOYING THE LIVE.'); }
+function mensagemMeta() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>US$ 15'); }
+function mensagemRosas() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>200 🌹'); }
+function mensagemVagas() { mostrarMensagemMesa('OPEN SEATS!<br>TYPE <b>BLACKJACK</b><br>IN THE CHAT TO JOIN.'); }
+function mensagemAgradecimento() { mostrarMensagemMesa('❤️ THANK YOU SO MUCH<br>TO EVERYONE WATCHING!'); }
+function mensagemObrigado() { mostrarMensagemMesa('❤️ THANK YOU<br>FOR HELPING WITH THE GOAL ❤'); }
 
-    function mensagemComandos() { mostrarMensagemMesa('WHEN IT\'S YOUR TURN, USE THE CHAT:<br>1️⃣ HIT → GET ANOTHER CARD.<br>2️⃣ STAND → STOP AND KEEP YOUR HAND.', 5000); }
+// Botões do dealer
+function cartaDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
+function revelarDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
+function dealerAutomatico() { alert('O dealer é controlado pelo bot automaticamente.'); }
+function novaRodada() { alert('As rodadas são iniciadas automaticamente pelo bot.'); }
 
-    function mensagemLike() { mostrarMensagemMesa('❤️ LEAVE A LIKE!<br>I HOPE YOU\'RE ENJOYING THE LIVE.'); }
+// ============================================================
+// FULLSCREEN
+// ============================================================
 
-    function mensagemMeta() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>US$ 15'); }
+function alternarTelaCheia() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+}
 
-    function mensagemRosas() { mostrarMensagemMesa('🎯 HELP ME REACH THE GOAL<br>200 🌹'); }
+document.addEventListener('fullscreenchange', () => {
+  document.body.classList.toggle('fullscreen-active', !!document.fullscreenElement);
+});
+document.addEventListener('webkitfullscreenchange', () => {
+  document.body.classList.toggle('fullscreen-active', !!document.webkitFullscreenElement);
+});
 
-    function mensagemVagas() { mostrarMensagemMesa('OPEN SEATS!<br>TYPE <b>BLACKJACK</b><br>IN THE CHAT TO JOIN.'); }
+// ============================================================
+// INICIALIZAÇÃO
+// ============================================================
 
-    function mensagemAgradecimento() { mostrarMensagemMesa('❤️ THANK YOU SO MUCH<br>TO EVERYONE WATCHING!'); }
+console.log('🃏 Blackjack Live - Cliente SSE com ANIMAÇÕES DE VIDA');
+console.log('📡 Conectado ao servidor.');
 
-    function mensagemObrigado() { mostrarMensagemMesa('❤️ THANK YOU<br>FOR HELPING WITH THE GOAL ❤'); }
+setTimeout(() => {
+  if (gameState.players.length === 0) {
+    document.getElementById('statusMesa').innerHTML = '🟢 WAITING FOR PLAYERS';
+  }
+}, 1000);
 
-    // Botões do dealer (não têm efeito no servidor)
-    function cartaDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
-
-    function revelarDealer() { alert('O dealer é controlado pelo bot automaticamente.'); }
-
-    function dealerAutomatico() { alert('O dealer é controlado pelo bot automaticamente.'); }
-
-    function novaRodada() { alert('As rodadas são iniciadas automaticamente pelo bot.'); }
-
-    // ============================================================
-    // FULLSCREEN
-    // ============================================================
-
-    function alternarTelaCheia() {
-      if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-      } else {
-        document.exitFullscreen();
-      }
-    }
-
-    document.addEventListener('fullscreenchange', () => {
-      document.body.classList.toggle('fullscreen-active', !!document.fullscreenElement);
-    });
-    document.addEventListener('webkitfullscreenchange', () => {
-      document.body.classList.toggle('fullscreen-active', !!document.webkitFullscreenElement);
-    });
-
-    // ============================================================
-    // INICIALIZAÇÃO
-    // ============================================================
-
-    console.log('🃏 Blackjack Live - Cliente SSE com ANIMAÇÕES DE VIDA');
-    console.log('📡 Conectado ao servidor.');
-
-    setTimeout(() => {
-      if (gameState.players.length === 0) {
-        document.getElementById('statusMesa').innerHTML = '🟢 WAITING FOR PLAYERS';
-      }
-    }, 1000);
-  </script>
+</script>
 
 </body>
 
