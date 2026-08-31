@@ -1,23 +1,25 @@
 import http from 'http';
 import {
   TikTokLiveConnection,
-  WebcastEvent,
-  ControlEvent
+  ControlEvent,
+  WebcastEvent
 } from 'tiktok-live-connector';
 
 // =====================================================
-// RENDER
+// RENDER HTTP SERVER
 // =====================================================
 
 const PORT = process.env.PORT || 10000;
 
-http.createServer((req, res) => {
+const server = http.createServer((req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/plain; charset=utf-8'
   });
 
   res.end('Blackjack TikTok Bot online!');
-}).listen(PORT, '0.0.0.0', () => {
+});
+
+server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Servidor HTTP ativo na porta ${PORT}`);
 });
 
@@ -28,7 +30,7 @@ http.createServer((req, res) => {
 const USERNAME = process.env.TIKTOK_USERNAME;
 
 if (!USERNAME) {
-  console.error('❌ TIKTOK_USERNAME não configurado.');
+  console.error('❌ TIKTOK_USERNAME não foi configurado.');
   process.exit(1);
 }
 
@@ -36,12 +38,10 @@ console.log('🤖 Blackjack TikTok Bot iniciando...');
 console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
 
 // =====================================================
-// CONEXÃO TIKTOK
+// CONEXÃO
 // =====================================================
 
-const connection = new TikTokLiveConnection(USERNAME, {
-  processInitialData: false
-});
+const connection = new TikTokLiveConnection(USERNAME);
 
 // =====================================================
 // JOGADORES
@@ -52,54 +52,26 @@ const players = new Map();
 let currentPlayer = null;
 
 // =====================================================
-// FUNÇÃO PARA PEGAR USUÁRIO
+// CONECTADO
 // =====================================================
 
-function getUsername(data) {
-  return data?.user?.uniqueId || null;
-}
+connection.on(ControlEvent.CONNECTED, (state) => {
+  console.log('');
+  console.log('🟢 CONECTADO À TIKTOK LIVE!');
+  console.log(`🎥 Room ID: ${state?.roomId || 'desconhecido'}`);
+  console.log('');
+});
 
 // =====================================================
-// CONECTAR
+// WEBSOCKET CONECTADO
 // =====================================================
 
-async function connectToLive() {
-
-  try {
-
-    const state = await connection.connect();
-
-    console.log('');
-    console.log('🟢 CONECTADO À TIKTOK LIVE!');
-    console.log(`🎥 Room ID: ${state.roomId}`);
-    console.log('');
-
-  } catch (error) {
-
-    console.error('❌ Não foi possível conectar à LIVE.');
-
-    if (error?.name === 'UserOfflineError') {
-      console.log('⏳ A conta não está ao vivo no momento.');
-    } else {
-      console.error(error);
-    }
-
-    console.log('🔄 Nova tentativa em 30 segundos...');
-
-    setTimeout(connectToLive, 30000);
-  }
-}
-
-// =====================================================
-// EVENTO: CONECTADO
-// =====================================================
-
-connection.on(ControlEvent.CONNECTED, () => {
+connection.on(ControlEvent.WEBSOCKET_CONNECTED, () => {
   console.log('🔌 WebSocket TikTok conectado.');
 });
 
 // =====================================================
-// EVENTO: DESCONECTADO
+// DESCONECTADO
 // =====================================================
 
 connection.on(ControlEvent.DISCONNECTED, () => {
@@ -107,20 +79,12 @@ connection.on(ControlEvent.DISCONNECTED, () => {
 });
 
 // =====================================================
-// EVENTO: ERRO
+// ERRO
 // =====================================================
 
-connection.on(ControlEvent.ERROR, ({ info, exception }) => {
-
+connection.on(ControlEvent.ERROR, (error) => {
   console.error('❌ Erro do TikTok:');
-
-  if (info) {
-    console.error('Info:', info);
-  }
-
-  if (exception) {
-    console.error(exception);
-  }
+  console.error(error);
 });
 
 // =====================================================
@@ -129,10 +93,10 @@ connection.on(ControlEvent.ERROR, ({ info, exception }) => {
 
 connection.on(WebcastEvent.CHAT, (data) => {
 
-  const username = getUsername(data);
+  const username = data?.user?.uniqueId;
   const comment = data?.comment;
 
-  // Ignora eventos incompletos
+  // Ignorar evento incompleto
   if (!username || typeof comment !== 'string') {
     return;
   }
@@ -148,14 +112,12 @@ connection.on(WebcastEvent.CHAT, (data) => {
   if (message === 'BLACKJACK') {
 
     if (players.has(username)) {
-
       console.log(`ℹ️ @${username} já está na mesa.`);
-
       return;
     }
 
     players.set(username, {
-      username: username,
+      username,
       lives: 3,
       playing: true
     });
@@ -170,7 +132,7 @@ connection.on(WebcastEvent.CHAT, (data) => {
   }
 
   // ===================================================
-  // VERIFICAR SE ESTÁ NA MESA
+  // VERIFICAR JOGADOR
   // ===================================================
 
   if (!players.has(username)) {
@@ -190,17 +152,13 @@ connection.on(WebcastEvent.CHAT, (data) => {
   if (message === '1') {
 
     if (currentPlayer !== username) {
-
       console.log(
-        `⏳ @${username} mandou 1, mas não é a vez dele.`
+        `⏳ @${username} enviou 1, mas não é a vez dele.`
       );
-
       return;
     }
 
     console.log(`🃏 @${username} → HIT`);
-
-    // FUTURA CONEXÃO COM O BLACKJACK LIVE
 
     return;
   }
@@ -212,31 +170,26 @@ connection.on(WebcastEvent.CHAT, (data) => {
   if (message === '2') {
 
     if (currentPlayer !== username) {
-
       console.log(
-        `⏳ @${username} mandou 2, mas não é a vez dele.`
+        `⏳ @${username} enviou 2, mas não é a vez dele.`
       );
-
       return;
     }
 
     console.log(`🛑 @${username} → STAND`);
-
-    // FUTURA CONEXÃO COM O BLACKJACK LIVE
 
     return;
   }
 });
 
 // =====================================================
-// NOVO MEMBRO
+// MEMBER
 // =====================================================
 
 connection.on(WebcastEvent.MEMBER, (data) => {
 
-  const username = getUsername(data);
+  const username = data?.user?.uniqueId;
 
-  // Não mostrar @undefined/@unknown
   if (!username) {
     return;
   }
@@ -250,34 +203,13 @@ connection.on(WebcastEvent.MEMBER, (data) => {
 
 connection.on(WebcastEvent.LIKE, (data) => {
 
-  const username = getUsername(data);
+  const username = data?.user?.uniqueId;
 
   if (!username) {
     return;
   }
 
-  console.log(
-    `❤️ @${username} curtiu!`
-  );
-});
-
-// =====================================================
-// PRESENTE
-// =====================================================
-
-connection.on(WebcastEvent.GIFT, (data) => {
-
-  const username = getUsername(data);
-
-  if (!username) {
-    return;
-  }
-
-  const giftId = data?.giftId ?? 'desconhecido';
-
-  console.log(
-    `🎁 @${username} enviou presente ${giftId}`
-  );
+  console.log(`❤️ @${username} curtiu a LIVE.`);
 });
 
 // =====================================================
@@ -286,7 +218,7 @@ connection.on(WebcastEvent.GIFT, (data) => {
 
 connection.on(WebcastEvent.FOLLOW, (data) => {
 
-  const username = getUsername(data);
+  const username = data?.user?.uniqueId;
 
   if (!username) {
     return;
@@ -301,7 +233,7 @@ connection.on(WebcastEvent.FOLLOW, (data) => {
 
 connection.on(WebcastEvent.SHARE, (data) => {
 
-  const username = getUsername(data);
+  const username = data?.user?.uniqueId;
 
   if (!username) {
     return;
@@ -311,20 +243,54 @@ connection.on(WebcastEvent.SHARE, (data) => {
 });
 
 // =====================================================
-// FINAL DA LIVE
+// GIFT
 // =====================================================
 
-connection.on(WebcastEvent.STREAM_END, () => {
+connection.on(WebcastEvent.GIFT, (data) => {
 
-  console.log('');
-  console.log('🔴 A LIVE terminou.');
-  console.log('⏳ Aguardando uma nova LIVE...');
-  console.log('');
+  const username = data?.user?.uniqueId;
 
+  if (!username) {
+    return;
+  }
+
+  console.log(`🎁 @${username} enviou um presente.`);
 });
 
 // =====================================================
-// INICIAR
+// STREAM END
 // =====================================================
 
-connectToLive();
+connection.on(WebcastEvent.STREAM_END, () => {
+  console.log('');
+  console.log('🔴 A LIVE terminou.');
+  console.log('');
+});
+
+// =====================================================
+// CONECTAR
+// =====================================================
+
+async function start() {
+
+  try {
+
+    const state = await connection.connect();
+
+    console.log('');
+    console.log('🟢 CONEXÃO ESTABELECIDA!');
+    console.log(`🎥 Room ID: ${state.roomId}`);
+    console.log('');
+
+  } catch (error) {
+
+    console.error('❌ Falha ao conectar à LIVE:');
+    console.error(error);
+
+    console.log('🔄 Tentando novamente em 30 segundos...');
+
+    setTimeout(start, 30000);
+  }
+}
+
+start();
