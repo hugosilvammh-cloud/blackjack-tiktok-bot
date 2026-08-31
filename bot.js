@@ -4,16 +4,24 @@ import {
   WebcastEvent
 } from 'tiktok-live-connector';
 
+
+// =====================================================
+// CONFIGURAÇÃO
+// =====================================================
+
 const PORT = process.env.PORT || 10000;
 const USERNAME = process.env.TIKTOK_USERNAME;
 
 if (!USERNAME) {
+  console.error('');
   console.error('❌ TIKTOK_USERNAME não configurado.');
+  console.error('');
   process.exit(1);
 }
 
+
 // =====================================================
-// ESTADO DO BLACKJACK
+// BLACKJACK
 // =====================================================
 
 const MAX_SEATS = 2;
@@ -38,7 +46,7 @@ const clients = new Set();
 
 
 // =====================================================
-// FUNÇÃO PARA ENVIAR EVENTO AO BLACKJACK
+// BROADCAST
 // =====================================================
 
 function broadcast(type, data = {}) {
@@ -109,6 +117,21 @@ function getPublicState() {
 
 
 // =====================================================
+// ENCONTRAR JOGADOR
+// =====================================================
+
+function findPlayer(username) {
+
+  if (!username) {
+    return null;
+  }
+
+  return players.get(username) || null;
+
+}
+
+
+// =====================================================
 // ENCONTRAR ASSENTO
 // =====================================================
 
@@ -133,7 +156,7 @@ function findSeat(username) {
 
 
 // =====================================================
-// ENCONTRAR ASSENTO LIVRE
+// ASSENTO LIVRE
 // =====================================================
 
 function findFreeSeat() {
@@ -154,7 +177,7 @@ function findFreeSeat() {
 
 
 // =====================================================
-// LIMPAR JOGADOR
+// REMOVER JOGADOR
 // =====================================================
 
 function removePlayer(username) {
@@ -167,15 +190,28 @@ function removePlayer(username) {
 
   const seat = player.seat;
 
-  if (seat && seats[seat]?.username === username) {
+  if (
+    seat &&
+    seats[seat] &&
+    seats[seat].username === username
+  ) {
+
     seats[seat] = null;
+
   }
 
   players.delete(username);
 
   if (currentPlayer === username) {
+
     currentPlayer = null;
+
   }
+
+  console.log('');
+  console.log(`🚪 Jogador removido: @${username}`);
+  console.log(`💺 Seat: ${seat}`);
+  console.log('');
 
   broadcast(
     'player_removed',
@@ -199,27 +235,23 @@ function removePlayer(username) {
 
 function joinPlayer(username, displayName) {
 
-  // Já está na mesa
+  if (!username) {
+    return;
+  }
+
+
+  // ---------------------------------------------------
+  // JÁ ESTÁ NA MESA
+  // ---------------------------------------------------
+
   if (players.has(username)) {
 
     console.log(
       `ℹ️ @${username} já está na mesa.`
     );
 
-    return;
-
-  }
-
-  const seat = findFreeSeat();
-
-  if (!seat) {
-
-    console.log(
-      `🚫 Mesa cheia. @${username} não entrou.`
-    );
-
     broadcast(
-      'table_full',
+      'already_joined',
       {
         username
       }
@@ -228,6 +260,43 @@ function joinPlayer(username, displayName) {
     return;
 
   }
+
+
+  // ---------------------------------------------------
+  // PROCURAR VAGA
+  // ---------------------------------------------------
+
+  const seat = findFreeSeat();
+
+
+  // ---------------------------------------------------
+  // MESA CHEIA
+  // ---------------------------------------------------
+
+  if (!seat) {
+
+    console.log('');
+    console.log(
+      `🚫 Mesa cheia. @${username} não entrou.`
+    );
+    console.log('');
+
+    broadcast(
+      'table_full',
+      {
+        username,
+        maxSeats: MAX_SEATS
+      }
+    );
+
+    return;
+
+  }
+
+
+  // ---------------------------------------------------
+  // CRIAR JOGADOR
+  // ---------------------------------------------------
 
   const player = {
 
@@ -245,6 +314,7 @@ function joinPlayer(username, displayName) {
 
   };
 
+
   players.set(
     username,
     player
@@ -252,12 +322,23 @@ function joinPlayer(username, displayName) {
 
   seats[seat] = player;
 
+
+  // ---------------------------------------------------
+  // LOG
+  // ---------------------------------------------------
+
   console.log('');
   console.log('🪑 NOVO JOGADOR');
   console.log(`👤 @${username}`);
+  console.log(`💬 ${player.displayName}`);
   console.log(`💺 SEAT ${seat}`);
   console.log('❤️❤️❤️ 3 vidas');
   console.log('');
+
+
+  // ---------------------------------------------------
+  // AVISAR HTML
+  // ---------------------------------------------------
 
   broadcast(
     'player_joined',
@@ -278,20 +359,34 @@ function joinPlayer(username, displayName) {
 
 
 // =====================================================
-// COMANDO HIT
+// HIT
 // =====================================================
 
 function playerHit(username) {
 
-  const player = players.get(username);
+  const player = findPlayer(username);
 
   if (!player) {
+
+    console.log(
+      `⚠️ HIT ignorado: @${username} não está na mesa.`
+    );
+
     return;
+
   }
 
+
   if (!player.playing) {
+
     return;
+
   }
+
+
+  // ---------------------------------------------------
+  // VERIFICAR VEZ
+  // ---------------------------------------------------
 
   if (currentPlayer !== username) {
 
@@ -303,7 +398,8 @@ function playerHit(username) {
       'invalid_turn',
       {
         username,
-        command: '1'
+        command: '1',
+        currentPlayer
       }
     );
 
@@ -311,15 +407,23 @@ function playerHit(username) {
 
   }
 
-  console.log(
-    `🃏 @${username} → HIT`
-  );
+
+  // ---------------------------------------------------
+  // HIT
+  // ---------------------------------------------------
+
+  console.log('');
+  console.log(`🃏 @${username} → HIT`);
+  console.log(`💺 Seat ${player.seat}`);
+  console.log('');
+
 
   broadcast(
     'command',
     {
       command: 'HIT',
       username,
+      displayName: player.displayName,
       seat: player.seat
     }
   );
@@ -328,20 +432,34 @@ function playerHit(username) {
 
 
 // =====================================================
-// COMANDO STAND
+// STAND
 // =====================================================
 
 function playerStand(username) {
 
-  const player = players.get(username);
+  const player = findPlayer(username);
 
   if (!player) {
+
+    console.log(
+      `⚠️ STAND ignorado: @${username} não está na mesa.`
+    );
+
     return;
+
   }
 
+
   if (!player.playing) {
+
     return;
+
   }
+
+
+  // ---------------------------------------------------
+  // VERIFICAR VEZ
+  // ---------------------------------------------------
 
   if (currentPlayer !== username) {
 
@@ -353,7 +471,8 @@ function playerStand(username) {
       'invalid_turn',
       {
         username,
-        command: '2'
+        command: '2',
+        currentPlayer
       }
     );
 
@@ -361,15 +480,23 @@ function playerStand(username) {
 
   }
 
-  console.log(
-    `🛑 @${username} → STAND`
-  );
+
+  // ---------------------------------------------------
+  // STAND
+  // ---------------------------------------------------
+
+  console.log('');
+  console.log(`🛑 @${username} → STAND`);
+  console.log(`💺 Seat ${player.seat}`);
+  console.log('');
+
 
   broadcast(
     'command',
     {
       command: 'STAND',
       username,
+      displayName: player.displayName,
       seat: player.seat
     }
   );
@@ -378,8 +505,8 @@ function playerStand(username) {
 
 
 // =====================================================
-// RECEBER ESTADO DO JOGO
-// O HTML informa ao servidor de quem é a vez.
+// ATUALIZAR ESTADO DO JOGO
+// O HTML envia essas informações.
 // =====================================================
 
 function updateGameState(body) {
@@ -388,8 +515,15 @@ function updateGameState(body) {
     typeof body !== 'object' ||
     body === null
   ) {
+
     return;
+
   }
+
+
+  // ---------------------------------------------------
+  // FASE
+  // ---------------------------------------------------
 
   if (
     typeof body.phase === 'string'
@@ -398,6 +532,11 @@ function updateGameState(body) {
     gamePhase = body.phase;
 
   }
+
+
+  // ---------------------------------------------------
+  // JOGADOR ATUAL
+  // ---------------------------------------------------
 
   if (
     body.currentPlayer === null ||
@@ -409,11 +548,50 @@ function updateGameState(body) {
 
   }
 
+
+  // ---------------------------------------------------
+  // SE O HTML MANDAR O SEAT
+  // ---------------------------------------------------
+
+  if (
+    body.currentSeat !== undefined &&
+    body.currentSeat !== null
+  ) {
+
+    const seat =
+      Number(body.currentSeat);
+
+    if (
+      seat === 1 ||
+      seat === 2
+    ) {
+
+      if (seats[seat]) {
+
+        currentPlayer =
+          seats[seat].username;
+
+      }
+
+    }
+
+  }
+
+
+  // ---------------------------------------------------
+  // BROADCAST DO ESTADO
+  // ---------------------------------------------------
+
+  broadcast(
+    'state',
+    getPublicState()
+  );
+
 }
 
 
 // =====================================================
-// PROCURAR TEXTOS NO EVENTO
+// ENCONTRAR TEXTOS DENTRO DO EVENTO
 // =====================================================
 
 function findTextValues(
@@ -431,6 +609,7 @@ function findTextValues(
 
   }
 
+
   for (
     const [key, value]
     of Object.entries(obj)
@@ -441,6 +620,7 @@ function findTextValues(
         ? `${path}.${key}`
         : key;
 
+
     if (
       typeof value === 'string'
     ) {
@@ -448,9 +628,7 @@ function findTextValues(
       if (
         value.length > 0 &&
         value.length < 500 &&
-        !value.startsWith('http') &&
-        !value.includes('2026') &&
-        !value.includes('1788')
+        !value.startsWith('http')
       ) {
 
         result.push({
@@ -477,6 +655,7 @@ function findTextValues(
 
   }
 
+
   return result;
 
 }
@@ -486,285 +665,355 @@ function findTextValues(
 // HTTP SERVER
 // =====================================================
 
-const server = http.createServer(
-  async (req, res) => {
-
-    // -------------------------------------------------
-    // CORS
-    // -------------------------------------------------
-
-    res.setHeader(
-      'Access-Control-Allow-Origin',
-      '*'
-    );
-
-    res.setHeader(
-      'Access-Control-Allow-Methods',
-      'GET,POST,OPTIONS'
-    );
-
-    res.setHeader(
-      'Access-Control-Allow-Headers',
-      'Content-Type'
-    );
+const server =
+  http.createServer(
+    async (req, res) => {
 
 
-    // -------------------------------------------------
-    // OPTIONS
-    // -------------------------------------------------
+      // =================================================
+      // CORS
+      // =================================================
 
-    if (req.method === 'OPTIONS') {
-
-      res.writeHead(
-        204
+      res.setHeader(
+        'Access-Control-Allow-Origin',
+        '*'
       );
 
-      res.end();
-
-      return;
-
-    }
-
-
-    // -------------------------------------------------
-    // STATUS
-    // -------------------------------------------------
-
-    if (
-      req.method === 'GET' &&
-      req.url === '/'
-    ) {
-
-      res.writeHead(
-        200,
-        {
-          'Content-Type':
-            'text/html; charset=utf-8'
-        }
+      res.setHeader(
+        'Access-Control-Allow-Methods',
+        'GET,POST,OPTIONS'
       );
 
-      res.end(`
-
-        <!DOCTYPE html>
-
-        <html>
-
-        <head>
-
-          <meta charset="UTF-8">
-
-          <title>
-            Blackjack TikTok Bot
-          </title>
-
-        </head>
-
-        <body>
-
-          <h1>
-            🃏 Blackjack TikTok Bot
-          </h1>
-
-          <p>
-            🟢 Server online
-          </p>
-
-          <p>
-            TikTok:
-            @${USERNAME}
-          </p>
-
-        </body>
-
-        </html>
-
-      `);
-
-      return;
-
-    }
+      res.setHeader(
+        'Access-Control-Allow-Headers',
+        'Content-Type'
+      );
 
 
-    // -------------------------------------------------
-    // ESTADO
-    // -------------------------------------------------
+      // =================================================
+      // OPTIONS
+      // =================================================
 
-    if (
-      req.method === 'GET' &&
-      req.url === '/state'
-    ) {
+      if (
+        req.method === 'OPTIONS'
+      ) {
+
+        res.writeHead(204);
+
+        res.end();
+
+        return;
+
+      }
+
+
+      // =================================================
+      // HOME
+      // =================================================
+
+      if (
+        req.method === 'GET' &&
+        req.url === '/'
+      ) {
+
+        res.writeHead(
+          200,
+          {
+            'Content-Type':
+              'text/html; charset=utf-8'
+          }
+        );
+
+
+        res.end(`
+
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>Blackjack TikTok Bot</title>
+
+</head>
+
+<body>
+
+<h1>🃏 Blackjack TikTok Bot</h1>
+
+<p>🟢 Server online</p>
+
+<p>
+TikTok:
+<strong>@${USERNAME}</strong>
+</p>
+
+<p>
+Players:
+<strong>${players.size}/${MAX_SEATS}</strong>
+</p>
+
+<p>
+Phase:
+<strong>${gamePhase}</strong>
+</p>
+
+</body>
+
+</html>
+
+        `);
+
+        return;
+
+      }
+
+
+      // =================================================
+      // STATE
+      // =================================================
+
+      if (
+        req.method === 'GET' &&
+        req.url === '/state'
+      ) {
+
+        res.writeHead(
+          200,
+          {
+            'Content-Type':
+              'application/json; charset=utf-8'
+          }
+        );
+
+        res.end(
+          JSON.stringify(
+            getPublicState()
+          )
+        );
+
+        return;
+
+      }
+
+
+      // =================================================
+      // SSE
+      // =================================================
+
+      if (
+        req.method === 'GET' &&
+        req.url === '/events'
+      ) {
+
+        res.writeHead(
+          200,
+          {
+            'Content-Type':
+              'text/event-stream; charset=utf-8',
+
+            'Cache-Control':
+              'no-cache, no-transform',
+
+            'Connection':
+              'keep-alive',
+
+            'Access-Control-Allow-Origin':
+              '*'
+          }
+        );
+
+
+        // -------------------------------------------------
+        // PRIMEIRO ESTADO
+        // -------------------------------------------------
+
+        res.write(
+          `data: ${JSON.stringify({
+            type: 'state',
+            ...getPublicState()
+          })}\n\n`
+        );
+
+
+        clients.add(res);
+
+
+        console.log(
+          `🖥️ Blackjack conectado. Clientes: ${clients.size}`
+        );
+
+
+        // -------------------------------------------------
+        // KEEP ALIVE
+        // -------------------------------------------------
+
+        const keepAlive =
+          setInterval(
+            () => {
+
+              try {
+
+                res.write(': ping\n\n');
+
+              } catch {
+
+                clearInterval(
+                  keepAlive
+                );
+
+                clients.delete(res);
+
+              }
+
+            },
+            15000
+          );
+
+
+        // -------------------------------------------------
+        // DESCONECTOU
+        // -------------------------------------------------
+
+        req.on(
+          'close',
+          () => {
+
+            clearInterval(
+              keepAlive
+            );
+
+            clients.delete(res);
+
+            console.log(
+              `🖥️ Blackjack desconectado. Clientes: ${clients.size}`
+            );
+
+          }
+        );
+
+
+        return;
+
+      }
+
+
+      // =================================================
+      // GAME STATE
+      // =================================================
+
+      if (
+        req.method === 'POST' &&
+        req.url === '/game-state'
+      ) {
+
+        let body = '';
+
+
+        req.on(
+          'data',
+          chunk => {
+
+            body +=
+              chunk.toString();
+
+          }
+        );
+
+
+        req.on(
+          'end',
+          () => {
+
+            try {
+
+              const data =
+                JSON.parse(body);
+
+
+              updateGameState(
+                data
+              );
+
+
+              res.writeHead(
+                200,
+                {
+                  'Content-Type':
+                    'application/json'
+                }
+              );
+
+
+              res.end(
+                JSON.stringify({
+                  ok: true,
+                  state:
+                    getPublicState()
+                })
+              );
+
+            }
+
+            catch (error) {
+
+              console.error(
+                '❌ Erro no /game-state:',
+                error
+              );
+
+
+              res.writeHead(
+                400,
+                {
+                  'Content-Type':
+                    'application/json'
+                }
+              );
+
+
+              res.end(
+                JSON.stringify({
+                  ok: false,
+                  error:
+                    'Invalid JSON'
+                })
+              );
+
+            }
+
+          }
+        );
+
+
+        return;
+
+      }
+
+
+      // =================================================
+      // 404
+      // =================================================
 
       res.writeHead(
-        200,
+        404,
         {
           'Content-Type':
-            'application/json; charset=utf-8'
+            'text/plain; charset=utf-8'
         }
       );
 
       res.end(
-        JSON.stringify(
-          getPublicState()
-        )
+        'Not found'
       );
-
-      return;
 
     }
-
-
-    // -------------------------------------------------
-    // SSE
-    // -------------------------------------------------
-
-    if (
-      req.method === 'GET' &&
-      req.url === '/events'
-    ) {
-
-      res.writeHead(
-        200,
-        {
-          'Content-Type':
-            'text/event-stream; charset=utf-8',
-
-          'Cache-Control':
-            'no-cache',
-
-          'Connection':
-            'keep-alive',
-
-          'Access-Control-Allow-Origin':
-            '*'
-        }
-      );
-
-      res.write(
-        `data: ${JSON.stringify({
-          type: 'state',
-          ...getPublicState()
-        })}\n\n`
-      );
-
-      clients.add(res);
-
-      console.log(
-        `🖥️ Blackjack conectado. Clientes: ${clients.size}`
-      );
-
-      req.on(
-        'close',
-        () => {
-
-          clients.delete(res);
-
-          console.log(
-            `🖥️ Blackjack desconectado. Clientes: ${clients.size}`
-          );
-
-        }
-      );
-
-      return;
-
-    }
-
-
-    // -------------------------------------------------
-    // GAME STATE
-    // -------------------------------------------------
-
-    if (
-      req.method === 'POST' &&
-      req.url === '/game-state'
-    ) {
-
-      let body = '';
-
-      req.on(
-        'data',
-        chunk => {
-
-          body += chunk.toString();
-
-        }
-      );
-
-      req.on(
-        'end',
-        () => {
-
-          try {
-
-            const data =
-              JSON.parse(body);
-
-            updateGameState(data);
-
-            res.writeHead(
-              200,
-              {
-                'Content-Type':
-                  'application/json'
-              }
-            );
-
-            res.end(
-              JSON.stringify({
-                ok: true,
-                state:
-                  getPublicState()
-              })
-            );
-
-          }
-
-          catch (error) {
-
-            res.writeHead(
-              400,
-              {
-                'Content-Type':
-                  'application/json'
-              }
-            );
-
-            res.end(
-              JSON.stringify({
-                ok: false,
-                error:
-                  'Invalid JSON'
-              })
-            );
-
-          }
-
-        }
-      );
-
-      return;
-
-    }
-
-
-    // -------------------------------------------------
-    // 404
-    // -------------------------------------------------
-
-    res.writeHead(
-      404,
-      {
-        'Content-Type':
-          'text/plain; charset=utf-8'
-      }
-    );
-
-    res.end(
-      'Not found'
-    );
-
-  }
-);
+  );
 
 
 // =====================================================
@@ -778,7 +1027,22 @@ server.listen(
 
     console.log('');
     console.log(
-      `🌐 Servidor HTTP ativo na porta ${PORT}`
+      '======================================'
+    );
+    console.log(
+      '🃏 BLACKJACK TIKTOK BOT'
+    );
+    console.log(
+      '======================================'
+    );
+    console.log(
+      `🌐 HTTP: porta ${PORT}`
+    );
+    console.log(
+      `🎯 TikTok: @${USERNAME}`
+    );
+    console.log(
+      '======================================'
     );
     console.log('');
 
@@ -787,7 +1051,7 @@ server.listen(
 
 
 // =====================================================
-// TIKTOK
+// TIKTOK CONNECTION
 // =====================================================
 
 console.log(
@@ -797,6 +1061,7 @@ console.log(
 console.log(
   `🎯 Procurando a LIVE de @${USERNAME}`
 );
+
 
 const connection =
   new TikTokLiveConnection(
@@ -808,15 +1073,34 @@ const connection =
 
 
 // =====================================================
-// CONEXÃO TIKTOK
+// CONECTAR À LIVE
 // =====================================================
+
+let connecting = false;
 
 async function connectToLive() {
 
+  if (connecting) {
+    return;
+  }
+
+  connecting = true;
+
+
   try {
+
+    console.log('');
+    console.log(
+      `🔄 Conectando à LIVE de @${USERNAME}...`
+    );
+
 
     const state =
       await connection.connect();
+
+
+    connecting = false;
+
 
     console.log('');
     console.log(
@@ -827,15 +1111,33 @@ async function connectToLive() {
       `🎥 Room ID: ${state.roomId}`
     );
 
+    console.log(
+      `👤 @${USERNAME}`
+    );
+
     console.log('');
+
+
+    broadcast(
+      'tiktok_connected',
+      {
+        username: USERNAME,
+        roomId: state.roomId
+      }
+    );
 
   }
 
   catch (error) {
 
+    connecting = false;
+
+
+    console.error('');
     console.error(
-      '❌ Não foi possível conectar à LIVE:'
+      '❌ Não foi possível conectar à LIVE.'
     );
+
 
     if (
       error?.name ===
@@ -851,14 +1153,19 @@ async function connectToLive() {
     else {
 
       console.error(
+        error?.message ||
         error
       );
 
     }
 
+
     console.log(
-      '🔄 Tentando novamente em 30 segundos...'
+      '🔄 Nova tentativa em 30 segundos...'
     );
+
+    console.log('');
+
 
     setTimeout(
       connectToLive,
@@ -880,13 +1187,13 @@ connection.on(
 
     console.log('');
     console.log(
-      '📨 EVENTO DE CHAT RECEBIDO!'
+      '📨 CHAT RECEBIDO'
     );
 
 
-    // -------------------------------------------------
+    // =================================================
     // USUÁRIO
-    // -------------------------------------------------
+    // =================================================
 
     const user =
       data?.user;
@@ -909,13 +1216,18 @@ connection.on(
       null;
 
 
+    // -------------------------------------------------
+    // IDENTIDADE PRINCIPAL
+    // -------------------------------------------------
+
     const username =
       uniqueId ||
-      nickname ||
       (
         userId
           ? `user_${userId}`
-          : 'unknown_user'
+          : nickname
+            ? nickname
+            : 'unknown_user'
       );
 
 
@@ -926,54 +1238,23 @@ connection.on(
 
 
     console.log(
-      '👤 ID:',
-      userId ||
-        'não encontrado'
+      `👤 ID: ${userId || 'não encontrado'}`
     );
 
     console.log(
-      '👤 UNIQUE ID:',
-      uniqueId ||
-        'não encontrado'
+      `👤 UNIQUE ID: ${uniqueId || 'não encontrado'}`
     );
 
     console.log(
-      '👤 NICKNAME:',
-      nickname ||
-        'não encontrado'
+      `👤 NICKNAME: ${nickname || 'não encontrado'}`
     );
 
 
-    // -------------------------------------------------
+    // =================================================
     // TEXTO
-    // -------------------------------------------------
+    // =================================================
 
-    const texts =
-      findTextValues(data);
-
-
-    console.log(
-      '🔎 TEXTOS ENCONTRADOS:'
-    );
-
-
-    for (
-      const item
-      of texts.slice(0, 30)
-    ) {
-
-      console.log(
-        `   ${item.path} = "${item.value}"`
-      );
-
-    }
-
-
-    // -------------------------------------------------
-    // COMENTÁRIO
-    // -------------------------------------------------
-
-    const possibleComment =
+    let possibleComment =
       data?.comment ??
       data?.content ??
       data?.text ??
@@ -982,19 +1263,90 @@ connection.on(
       null;
 
 
+    // -------------------------------------------------
+    // TENTAR OUTROS CAMPOS
+    // -------------------------------------------------
+
+    if (
+      possibleComment === null ||
+      possibleComment === undefined
+    ) {
+
+      const texts =
+        findTextValues(data);
+
+
+      console.log(
+        '🔎 Textos encontrados no evento:'
+      );
+
+
+      for (
+        const item
+        of texts.slice(0, 20)
+      ) {
+
+        console.log(
+          `   ${item.path} = "${item.value}"`
+        );
+
+      }
+
+
+      // -------------------------------------------------
+      // PROCURAR COMENTÁRIO PROVÁVEL
+      // -------------------------------------------------
+
+      const possible =
+        texts.find(
+          item => {
+
+            const value =
+              item.value
+                .trim()
+                .toUpperCase();
+
+            return (
+              value === 'BLACKJACK' ||
+              value === '1' ||
+              value === '2'
+            );
+
+          }
+        );
+
+
+      if (possible) {
+
+        possibleComment =
+          possible.value;
+
+      }
+
+    }
+
+
+    // =================================================
+    // SEM TEXTO
+    // =================================================
+
     if (
       possibleComment === null ||
       possibleComment === undefined
     ) {
 
       console.log(
-        '⚠️ Texto não encontrado.'
+        '⚠️ Texto do comentário não encontrado.'
       );
 
       return;
 
     }
 
+
+    // =================================================
+    // NORMALIZAR
+    // =================================================
 
     const message =
       String(
@@ -1028,7 +1380,7 @@ connection.on(
 
 
     // =================================================
-    // PLAYER PRECISA ESTAR NA MESA
+    // VERIFICAR SE ESTÁ NA MESA
     // =================================================
 
     if (
@@ -1105,7 +1457,12 @@ connection.on(
     const username =
       data?.user?.uniqueId ||
       data?.user?.nickname ||
-      `user_${data?.user?.id || 'unknown'}`;
+      (
+        data?.user?.id
+          ? `user_${data.user.id}`
+          : 'unknown'
+      );
+
 
     console.log(
       `👤 @${username} entrou na LIVE.`
@@ -1126,7 +1483,12 @@ connection.on(
     const username =
       data?.user?.uniqueId ||
       data?.user?.nickname ||
-      `user_${data?.user?.id || 'unknown'}`;
+      (
+        data?.user?.id
+          ? `user_${data.user.id}`
+          : 'unknown'
+      );
+
 
     console.log(
       `❤️ @${username} curtiu a LIVE.`
@@ -1147,7 +1509,12 @@ connection.on(
     const username =
       data?.user?.uniqueId ||
       data?.user?.nickname ||
-      `user_${data?.user?.id || 'unknown'}`;
+      (
+        data?.user?.id
+          ? `user_${data.user.id}`
+          : 'unknown'
+      );
+
 
     console.log(
       `➕ @${username} seguiu a LIVE.`
@@ -1168,7 +1535,12 @@ connection.on(
     const username =
       data?.user?.uniqueId ||
       data?.user?.nickname ||
-      `user_${data?.user?.id || 'unknown'}`;
+      (
+        data?.user?.id
+          ? `user_${data.user.id}`
+          : 'unknown'
+      );
+
 
     console.log(
       `📤 @${username} compartilhou a LIVE.`
@@ -1189,7 +1561,12 @@ connection.on(
     const username =
       data?.user?.uniqueId ||
       data?.user?.nickname ||
-      `user_${data?.user?.id || 'unknown'}`;
+      (
+        data?.user?.id
+          ? `user_${data.user.id}`
+          : 'unknown'
+      );
+
 
     console.log(
       `🎁 @${username} enviou um presente.`
@@ -1213,14 +1590,69 @@ connection.on(
     );
     console.log('');
 
+
     gamePhase =
       'waiting';
 
     currentPlayer =
       null;
 
+
     broadcast(
-      'stream_end'
+      'stream_end',
+      {
+        username: USERNAME
+      }
+    );
+
+
+    broadcast(
+      'state',
+      getPublicState()
+    );
+
+
+    // -------------------------------------------------
+    // LIMPAR MESA
+    // -------------------------------------------------
+
+    players.clear();
+
+    seats[1] = null;
+    seats[2] = null;
+
+
+    broadcast(
+      'state',
+      getPublicState()
+    );
+
+
+    // -------------------------------------------------
+    // TENTAR NOVAMENTE
+    // -------------------------------------------------
+
+    setTimeout(
+      connectToLive,
+      30000
+    );
+
+  }
+);
+
+
+// =====================================================
+// ERROS DA CONEXÃO
+// =====================================================
+
+connection.on(
+  'error',
+  (error) => {
+
+    console.error(
+      '❌ Erro TikTok:',
+      error?.message ||
+      error
     );
 
   }
