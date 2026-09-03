@@ -1,22 +1,22 @@
-import http from 'http';
 import express from 'express';
-import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
+import http from 'http';
+import { WebcastPushConnection } from 'tiktok-live-connector';
 import cors from 'cors';
-import { fileURLToPath } from 'url';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // =====================================================
-// CONFIGURAÇÃO
+// CONFIGURATION
 // =====================================================
 
 const PORT = process.env.PORT || 10000;
 const USERNAME = process.env.TIKTOK_USERNAME;
 
 if (!USERNAME) {
-  console.error('❌ TIKTOK_USERNAME não configurado.');
+  console.error('❌ TIKTOK_USERNAME not configured.');
   process.exit(1);
 }
 
@@ -30,7 +30,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // =====================================================
-// ESTADO DO JOGO
+// GAME STATE
 // =====================================================
 
 const game = {
@@ -44,7 +44,7 @@ const game = {
 };
 
 // =====================================================
-// BARALHO
+// DECK
 // =====================================================
 
 function createDeck() {
@@ -86,30 +86,20 @@ function handScore(hand) {
 }
 
 // =====================================================
-// FUNÇÕES DO JOGO
+// GAME FUNCTIONS
 // =====================================================
-
-function resetGame() {
-  deck = createDeck();
-  game.phase = 'waiting';
-  game.players = [];
-  game.dealerHand = [];
-  game.dealerScore = 0;
-  game.currentTurn = null;
-  broadcastState();
-}
 
 function addPlayer(userId, nickname) {
   if (game.players.find(p => p.id === userId)) {
-    broadcastMessage(`@${nickname} já está na mesa.`);
+    broadcastMessage(`@${nickname} is already at the table.`);
     return false;
   }
   if (game.players.length >= game.maxPlayers) {
-    broadcastMessage(`Mesa cheia! @${nickname} não pode entrar.`);
+    broadcastMessage(`Table is full! @${nickname} cannot join.`);
     return false;
   }
   if (game.phase !== 'waiting' && game.phase !== 'result') {
-    broadcastMessage(`⏳ Jogo em andamento, @${nickname}. Aguarde a próxima rodada.`);
+    broadcastMessage(`⏳ Game in progress, @${nickname}. Wait for the next round.`);
     return false;
   }
 
@@ -124,14 +114,13 @@ function addPlayer(userId, nickname) {
     blackjack: false,
   });
 
-  broadcastMessage(`🃏 @${nickname} entrou na mesa! (${game.players.length}/${game.maxPlayers})`);
+  broadcastMessage(`🃏 @${nickname} joined the table! (${game.players.length}/${game.maxPlayers})`);
   broadcastState();
 
-  // 🚀 NOVO: Começa com 1 jogador também
   if (game.players.length === 1) {
     setTimeout(() => {
       if (game.phase === 'waiting' || game.phase === 'result') {
-        broadcastMessage('🎯 Apenas um jogador? Vamos começar!');
+        broadcastMessage('🎯 Only one player? Let\'s start!');
         startRound();
       }
     }, 3000);
@@ -141,17 +130,6 @@ function addPlayer(userId, nickname) {
     setTimeout(startRound, 1500);
   }
   return true;
-}
-
-function removePlayer(userId) {
-  const player = game.players.find(p => p.id === userId);
-  if (!player) return;
-  game.players = game.players.filter(p => p.id !== userId);
-  if (game.currentTurn === userId) {
-    game.currentTurn = game.players.length > 0 ? game.players[0].id : null;
-  }
-  broadcastMessage(`❌ @${player.nickname} saiu da mesa.`);
-  broadcastState();
 }
 
 function startRound() {
@@ -173,13 +151,13 @@ function startRound() {
     p.blackjack = false;
   }
 
-  // Distribui 2 cartas para cada jogador
   for (let i = 0; i < 2; i++) {
     for (const p of game.players) {
       p.hand.push(drawCard());
     }
   }
 
+  // DEALER RECEIVES ONLY 1 CARD (face up)
   game.dealerHand = [drawCard()];
 
   for (const p of game.players) {
@@ -192,21 +170,11 @@ function startRound() {
 
   game.dealerScore = handScore(game.dealerHand);
   game.phase = 'players';
-
-  // Define o primeiro turno
   const firstPlayer = game.players.find(p => !p.stand && !p.busted);
   game.currentTurn = firstPlayer ? firstPlayer.id : null;
 
   broadcastState();
-
-  if (game.currentTurn) {
-    const currentPlayer = game.players.find(p => p.id === game.currentTurn);
-    broadcastMessage(`🎯 Nova rodada! Vez de @${currentPlayer.nickname}`);
-  } else {
-    broadcastMessage(`🎯 Nova rodada!`);
-    // Se todos já tiverem blackjack, vai direto pro dealer
-    checkRoundEnd();
-  }
+  broadcastMessage(`🎯 New round! It's @${game.currentTurn ? game.players.find(p => p.id === game.currentTurn).nickname : 'no one'}'s turn.`);
 }
 
 function hitPlayer(userId) {
@@ -221,9 +189,9 @@ function hitPlayer(userId) {
   if (player.score > 21) {
     player.busted = true;
     player.lives--;
-    broadcastMessage(`💥 @${player.nickname} estourou! Perdeu uma vida.`);
+    broadcastMessage(`💥 @${player.nickname} busted! Lost a life.`);
     if (player.lives <= 0) {
-      broadcastMessage(`💀 @${player.nickname} foi eliminado!`);
+      broadcastMessage(`💀 @${player.nickname} was eliminated!`);
       game.players = game.players.filter(p => p.id !== userId);
       if (game.currentTurn === userId) {
         const next = game.players.find(p => !p.stand && !p.busted);
@@ -232,7 +200,7 @@ function hitPlayer(userId) {
     }
   } else if (player.score === 21) {
     player.stand = true;
-    broadcastMessage(`🎯 @${player.nickname} fez 21!`);
+    broadcastMessage(`🎯 @${player.nickname} got 21!`);
   }
 
   broadcastState();
@@ -246,17 +214,15 @@ function standPlayer(userId) {
   if (player.stand || player.busted) return;
 
   player.stand = true;
-  broadcastMessage(`🛑 @${player.nickname} parou com ${player.score} pontos.`);
+  broadcastMessage(`🛑 @${player.nickname} stands with ${player.score} points.`);
   broadcastState();
   checkRoundEnd();
 }
 
 function checkRoundEnd() {
-  // Verifica se todos os jogadores pararam ou estouraram
   const allDone = game.players.every(p => p.stand || p.busted);
 
   if (!allDone) {
-    // Avança para o próximo jogador ativo
     const currentIndex = game.players.findIndex(p => p.id === game.currentTurn);
     let nextIndex = (currentIndex + 1) % game.players.length;
     let attempts = 0;
@@ -265,63 +231,20 @@ function checkRoundEnd() {
       if (!next.stand && !next.busted) {
         game.currentTurn = next.id;
         broadcastState();
-        broadcastMessage(`🎯 Vez de @${next.nickname}`);
+        broadcastMessage(`🎯 It's @${next.nickname}'s turn.`);
         return;
       }
       nextIndex = (nextIndex + 1) % game.players.length;
       attempts++;
     }
-    // Se chegou aqui, ninguém mais pode jogar
   }
 
-  // ROUND END - Dealer joga
+  // ROUND END - DEALER PLAYS AUTOMATICALLY (but you control it manually from the frontend)
+  // IMPORTANT: The dealer will NOT play automatically here.
+  // The frontend controls the dealer manually with the buttons.
   game.phase = 'dealer';
   broadcastState();
-  broadcastMessage('🎩 Vez do dealer...');
-
-  setTimeout(() => {
-    // Dealer compra até 17
-    while (game.dealerScore < 17) {
-      game.dealerHand.push(drawCard());
-      game.dealerScore = handScore(game.dealerHand);
-    }
-
-    const dealerBusted = game.dealerScore > 21;
-
-    // Avalia resultados
-    for (const p of game.players) {
-      if (p.busted) continue;
-      if (dealerBusted || p.score > game.dealerScore) {
-        p.lives++;
-        broadcastMessage(`🏆 @${p.nickname} venceu! +1 vida`);
-      } else if (p.score < game.dealerScore) {
-        p.lives--;
-        broadcastMessage(`😢 @${p.nickname} perdeu! -1 vida`);
-        if (p.lives <= 0) {
-          broadcastMessage(`💀 @${p.nickname} foi eliminado!`);
-        }
-      } else {
-        broadcastMessage(`🤝 @${p.nickname} empatou!`);
-      }
-    }
-
-    // Remove eliminados
-    game.players = game.players.filter(p => p.lives > 0);
-    game.phase = 'result';
-    broadcastState();
-
-    // Inicia nova rodada automaticamente
-    setTimeout(() => {
-      if (game.players.length > 0) {
-        startRound();
-      } else {
-        game.phase = 'waiting';
-        broadcastState();
-        broadcastMessage('🟢 Aguardando jogadores...');
-      }
-    }, 5000);
-
-  }, 2000);
+  broadcastMessage('🎩 Dealer\'s turn. Use the Dealer Control buttons.');
 }
 
 // =====================================================
@@ -331,20 +254,14 @@ function checkRoundEnd() {
 let clients = [];
 
 function broadcastState() {
-  const data = {
-    type: 'state',
-    data: game,
-  };
+  const data = { type: 'state', data: game };
   clients.forEach(client => {
     client.write(`data: ${JSON.stringify(data)}\n\n`);
   });
 }
 
 function broadcastMessage(text) {
-  const data = {
-    type: 'message',
-    data: text,
-  };
+  const data = { type: 'message', data: text };
   clients.forEach(client => {
     client.write(`data: ${JSON.stringify(data)}\n\n`);
   });
@@ -352,7 +269,7 @@ function broadcastMessage(text) {
 }
 
 // =====================================================
-// ROTAS HTTP
+// HTTP ROUTES
 // =====================================================
 
 app.get('/state', (req, res) => {
@@ -368,7 +285,7 @@ app.post('/game-state', (req, res) => {
     standPlayer(userId);
     res.json({ success: true });
   } else {
-    res.json({ success: false, error: 'Ação inválida' });
+    res.json({ success: false, error: 'Invalid action' });
   }
 });
 
@@ -379,10 +296,8 @@ app.get('/events', (req, res) => {
     'Connection': 'keep-alive',
     'Access-Control-Allow-Origin': '*',
   });
-
   clients.push(res);
   broadcastState();
-
   req.on('close', () => {
     clients = clients.filter(client => client !== res);
   });
@@ -392,124 +307,67 @@ app.get('/events', (req, res) => {
 // TIKTOK LIVE
 // =====================================================
 
-console.log(`🤖 Blackjack TikTok Bot iniciando...`);
-console.log(`🎯 Procurando a LIVE de @${USERNAME}`);
+console.log(`🤖 Blackjack TikTok Bot starting...`);
+console.log(`🎯 Looking for LIVE of @${USERNAME}`);
 
-const connection = new TikTokLiveConnection(USERNAME, {
-  processInitialData: false,
-});
+const connection = new WebcastPushConnection(USERNAME);
 
 async function connectToLive() {
   try {
     const state = await connection.connect();
-    console.log(`✅ Conectado à LIVE! Room ID: ${state.roomId}`);
+    console.log(`✅ Connected to LIVE! Room ID: ${state.roomId}`);
   } catch (error) {
-    console.error('❌ Erro ao conectar:', error.message);
+    console.error('❌ Connection error:', error.message);
+    console.log('🔄 Retrying in 30 seconds...');
     setTimeout(connectToLive, 30000);
   }
 }
 
 // =====================================================
-// CHAT - VERSÃO CORRIGIDA
+// CHAT
 // =====================================================
 
-connection.on(WebcastEvent.CHAT, (data) => {
-  const userId = data?.user?.id || data?.userId || null;
-  const nickname = data?.user?.nickname || data?.user?.uniqueId || data?.nickname || 'anon';
-  
-  let comment = null;
-  
-  if (data?.comment) comment = data.comment;
-  else if (data?.text) comment = data.text;
-  else if (data?.content) comment = data.content;
-  else if (data?.message) comment = data.message;
-  else {
-    const possibleTexts = [];
-    const searchForText = (obj, path = '') => {
-      if (!obj || typeof obj !== 'object') return;
-      for (const [key, value] of Object.entries(obj)) {
-        if (typeof value === 'string' && value.length > 0 && value.length < 500) {
-          if (!value.match(/^\d+$/) && !value.startsWith('http') && !value.includes('2026')) {
-            possibleTexts.push({ path: `${path}.${key}`, value });
-          }
-        } else if (value && typeof value === 'object') {
-          searchForText(value, `${path}.${key}`);
-        }
-      }
-    };
-    searchForText(data);
-    if (possibleTexts.length > 0) {
-      const priorityPaths = ['comment', 'text', 'content', 'message', 'describe'];
-      for (const priority of priorityPaths) {
-        const found = possibleTexts.find(p => p.path.includes(priority));
-        if (found) {
-          comment = found.value;
-          break;
-        }
-      }
-      if (!comment) {
-        comment = possibleTexts[0]?.value || null;
-      }
-    }
-  }
+connection.on('chat', (data) => {
+  const userId = data.userId || data?.user?.id || null;
+  const nickname = data.uniqueId || data?.user?.nickname || 'anon';
+  const comment = data.comment || '';
 
-  if (!comment || comment.trim() === '') {
-    console.log(`⚠️ Comentário vazio ou não encontrado para @${nickname}`);
+  if (!userId) {
+    console.log('⚠️ User without ID, ignoring.');
     return;
   }
 
   const message = comment.trim().toUpperCase();
-  console.log(`💬 @${nickname} (${userId || 'sem ID'}): ${message}`);
-
-  const finalUserId = userId || data?.user?.uniqueId || data?.uniqueId || `user_${Date.now()}`;
+  console.log(`💬 @${nickname} (${userId}): ${message}`);
 
   if (message === 'BLACKJACK') {
-    addPlayer(finalUserId, nickname);
+    addPlayer(userId, nickname);
     return;
   }
 
-  const player = game.players.find(p => p.id === finalUserId);
+  const player = game.players.find(p => p.id === userId);
   if (!player) return;
 
   if (message === '1') {
-    hitPlayer(finalUserId);
+    hitPlayer(userId);
   } else if (message === '2') {
-    standPlayer(finalUserId);
+    standPlayer(userId);
   }
 });
 
-// =====================================================
-// OUTROS EVENTOS
-// =====================================================
-
-connection.on(WebcastEvent.MEMBER, (data) => {
-  const name = data?.user?.nickname || 'alguém';
-  console.log(`👤 @${name} entrou na LIVE.`);
-});
-
-connection.on(WebcastEvent.LIKE, (data) => {
-  const name = data?.user?.nickname || 'alguém';
-  console.log(`❤️ @${name} curtiu.`);
-});
-
-connection.on(WebcastEvent.GIFT, (data) => {
-  const name = data?.user?.nickname || 'alguém';
-  console.log(`🎁 @${name} enviou presente.`);
-});
-
-connection.on(WebcastEvent.STREAM_END, () => {
-  console.log('🔴 A LIVE terminou.');
-  broadcastMessage('🔴 LIVE encerrada. O bot aguarda a próxima.');
+connection.on('disconnected', () => {
+  console.log('⚠️ Disconnected from TikTok. Retrying...');
+  setTimeout(connectToLive, 5000);
 });
 
 // =====================================================
-// INICIAR SERVIDOR
+// START SERVER
 // =====================================================
 
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌐 Servidor HTTP ativo na porta ${PORT}`);
-  console.log(`📡 SSE em /events`);
+  console.log(`🌐 HTTP Server running on port ${PORT}`);
+  console.log(`📡 SSE at /events`);
   console.log(`📡 GET /state`);
   console.log(`📡 POST /game-state`);
   connectToLive();
