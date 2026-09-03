@@ -8,8 +8,7 @@
 <title>Blackjack Live</title>
 
 <style>
-/* ===== TODO O SEU CSS AQUI ===== */
-/* (Mantenha exatamente como está no seu arquivo) */
+
 *{
     box-sizing:border-box;
 }
@@ -30,7 +29,7 @@ body{
 }
 
 /* =========================
-   FULL SCREEN
+   FULL SCREEN BUTTON
 ========================= */
 
 .fullscreen-control{
@@ -43,17 +42,24 @@ body{
 .fullscreen-button{
     width:32px;
     height:32px;
+
     display:flex;
     align-items:center;
     justify-content:center;
+
     background:#111;
     color:#ffd700;
+
     border:1px solid #5c4217;
     border-radius:7px;
+
     padding:0;
+
     font-size:18px;
     font-weight:bold;
+
     box-shadow:0 2px 8px #000;
+
     cursor:pointer;
 }
 
@@ -168,11 +174,15 @@ button{
 
 .mesa{
     position:relative;
+
     width:98%;
     max-width:700px;
+
     height:450px;
+
     margin:auto;
     padding:10px;
+
     display:flex;
     flex-direction:column;
 
@@ -184,6 +194,7 @@ button{
         );
 
     border:4px solid #573615;
+
     border-radius:24px;
 
     box-shadow:
@@ -193,8 +204,16 @@ button{
     overflow:visible;
 }
 
-.mesa.falaAtiva .areaCartas,
-.mesa.falaAtiva .centroMesa,
+.mesa.falaAtiva .areaCartas{
+    opacity:0;
+    visibility:hidden;
+}
+
+.mesa.falaAtiva .centroMesa{
+    opacity:0;
+    visibility:hidden;
+}
+
 .mesa.falaAtiva .areaDealer,
 .mesa.falaAtiva .areaJogadores{
     opacity:0;
@@ -226,7 +245,9 @@ button{
 
 .carta{
     display:inline-flex;
+
     flex-direction:column;
+
     align-items:center;
     justify-content:center;
 
@@ -234,6 +255,7 @@ button{
 
     width:40px;
     height:57px;
+
     margin:2px;
 
     background:white;
@@ -249,7 +271,9 @@ button{
         0 0 2px rgba(255,255,255,.8);
 
     vertical-align:middle;
+
     position:relative;
+
     overflow:hidden;
 }
 
@@ -275,7 +299,9 @@ button{
 
     color:white;
 
-    border:2px solid #d6aa38;
+    border:
+        2px solid
+        #d6aa38;
 
     box-shadow:
         0 2px 5px #000,
@@ -288,18 +314,24 @@ button{
     content:"♠ ♥ ♣ ♦";
 
     position:absolute;
+
     inset:5px;
 
     display:flex;
+
     align-items:center;
     justify-content:center;
 
     font-size:12px;
+
     letter-spacing:2px;
 
     color:rgba(255,215,0,.8);
 
-    border:1px solid rgba(255,215,0,.5);
+    border:
+        1px solid
+        rgba(255,215,0,.5);
+
     border-radius:3px;
 
     transform:rotate(-20deg);
@@ -321,6 +353,7 @@ button{
 
     0%{
         opacity:0;
+
         transform:
             translateY(-120px)
             translateX(30px)
@@ -334,6 +367,7 @@ button{
 
     35%{
         opacity:1;
+
         transform:
             translateY(15px)
             translateX(-4px)
@@ -362,6 +396,7 @@ button{
 
     100%{
         opacity:1;
+
         transform:
             translateY(0)
             translateX(0)
@@ -393,6 +428,7 @@ button{
             perspective(500px)
             rotateY(90deg)
             scale(.92);
+
         opacity:.4;
     }
 
@@ -401,6 +437,7 @@ button{
             perspective(500px)
             rotateY(-12deg)
             scale(1.05);
+
         opacity:1;
     }
 
@@ -434,6 +471,7 @@ button{
 
     opacity:0;
     visibility:hidden;
+
     pointer-events:none;
 
     font-size:
@@ -444,13 +482,16 @@ button{
         );
 
     line-height:1.18;
+
     font-weight:900;
+
     color:white;
 
     text-shadow:
         0 3px 5px #000,
         0 0 8px #000,
-        0 0 20px rgba(255,255,255,.35);
+        0 0 20px
+        rgba(255,255,255,.35);
 
     transition:
         opacity .18s ease,
@@ -473,6 +514,7 @@ button{
 
     0%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.72);
@@ -480,6 +522,7 @@ button{
 
     70%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1.05);
@@ -487,6 +530,7 @@ button{
 
     100%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1);
@@ -505,6 +549,7 @@ button{
 
     0%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1);
@@ -512,6 +557,7 @@ button{
 
     100%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.94);
@@ -537,10 +583,13 @@ button{
     z-index:250;
 
     text-align:center;
+
     pointer-events:none;
+
     opacity:0;
 
     font-weight:900;
+
     color:white;
 
     text-shadow:
@@ -566,6 +615,7 @@ button{
         );
 
     line-height:1;
+
     margin-bottom:8px;
 }
 
@@ -592,7 +642,8 @@ button{
             scale(.35)
             rotate(-8deg);
 
-        filter:blur(5px);
+        filter:
+            blur(5px);
     }
 
     18%{
@@ -603,7 +654,8 @@ button{
             scale(1.15)
             rotate(2deg);
 
-        filter:blur(0);
+        filter:
+            blur(0);
     }
 
     35%{
@@ -656,6 +708,7 @@ button{
     z-index:280;
 
     pointer-events:none;
+
     opacity:0;
 }
 
@@ -692,6 +745,7 @@ button{
 
 .explosaoVidas.mostrar
 .coracaoExplosao:nth-child(1){
+
     animation:
         coracaoExplode1
         1.3s
@@ -701,6 +755,7 @@ button{
 
 .explosaoVidas.mostrar
 .coracaoExplosao:nth-child(2){
+
     animation:
         coracaoExplode2
         1.4s
@@ -710,6 +765,7 @@ button{
 
 .explosaoVidas.mostrar
 .coracaoExplosao:nth-child(3){
+
     animation:
         coracaoExplode3
         1.5s
@@ -719,15 +775,24 @@ button{
 
 @keyframes explosaoContainer{
 
-    0%{opacity:1;}
-    70%{opacity:1;}
-    100%{opacity:0;}
+    0%{
+        opacity:1;
+    }
+
+    70%{
+        opacity:1;
+    }
+
+    100%{
+        opacity:0;
+    }
 }
 
 @keyframes coracaoExplode1{
 
     0%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.2)
@@ -736,6 +801,7 @@ button{
 
     15%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1.15)
@@ -744,6 +810,7 @@ button{
 
     35%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% - 65px),
@@ -755,6 +822,7 @@ button{
 
     55%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% - 125px),
@@ -766,6 +834,7 @@ button{
 
     75%{
         opacity:.7;
+
         transform:
             translate(
                 calc(-50% - 175px),
@@ -777,6 +846,7 @@ button{
 
     100%{
         opacity:0;
+
         transform:
             translate(
                 calc(-50% - 210px),
@@ -791,6 +861,7 @@ button{
 
     0%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.2);
@@ -798,6 +869,7 @@ button{
 
     15%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1.2);
@@ -805,6 +877,7 @@ button{
 
     35%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% + 4px),
@@ -816,6 +889,7 @@ button{
 
     55%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% + 15px),
@@ -827,6 +901,7 @@ button{
 
     75%{
         opacity:.7;
+
         transform:
             translate(
                 calc(-50% + 20px),
@@ -838,6 +913,7 @@ button{
 
     100%{
         opacity:0;
+
         transform:
             translate(
                 calc(-50% + 25px),
@@ -852,6 +928,7 @@ button{
 
     0%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.2);
@@ -859,6 +936,7 @@ button{
 
     15%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(1.15);
@@ -866,6 +944,7 @@ button{
 
     35%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% + 70px),
@@ -877,6 +956,7 @@ button{
 
     55%{
         opacity:1;
+
         transform:
             translate(
                 calc(-50% + 135px),
@@ -888,6 +968,7 @@ button{
 
     75%{
         opacity:.7;
+
         transform:
             translate(
                 calc(-50% + 185px),
@@ -899,6 +980,7 @@ button{
 
     100%{
         opacity:0;
+
         transform:
             translate(
                 calc(-50% + 220px),
@@ -923,6 +1005,7 @@ button{
     height:20px;
 
     border-radius:50%;
+
     background:white;
 
     transform:
@@ -930,7 +1013,9 @@ button{
         scale(0);
 
     opacity:0;
+
     pointer-events:none;
+
     z-index:279;
 }
 
@@ -946,6 +1031,7 @@ button{
 
     0%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(.1);
@@ -953,6 +1039,7 @@ button{
 
     20%{
         opacity:1;
+
         transform:
             translate(-50%,-50%)
             scale(5);
@@ -960,6 +1047,7 @@ button{
 
     45%{
         opacity:.5;
+
         transform:
             translate(-50%,-50%)
             scale(12);
@@ -967,6 +1055,7 @@ button{
 
     100%{
         opacity:0;
+
         transform:
             translate(-50%,-50%)
             scale(18);
@@ -995,47 +1084,88 @@ button{
         0 0 15px rgba(255,0,0,.7);
 
     opacity:0;
+
     pointer-events:none;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(5){
-    animation:particula1 1s ease-out forwards;
+
+    animation:
+        particula1
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(6){
-    animation:particula2 1s ease-out forwards;
+
+    animation:
+        particula2
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(7){
-    animation:particula3 1s ease-out forwards;
+
+    animation:
+        particula3
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(8){
-    animation:particula4 1s ease-out forwards;
+
+    animation:
+        particula4
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(9){
-    animation:particula5 1s ease-out forwards;
+
+    animation:
+        particula5
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(10){
-    animation:particula6 1s ease-out forwards;
+
+    animation:
+        particula6
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(11){
-    animation:particula7 1s ease-out forwards;
+
+    animation:
+        particula7
+        1s
+        ease-out
+        forwards;
 }
 
 .explosaoVidas.mostrar
 .particulaVida:nth-of-type(12){
-    animation:particula8 1s ease-out forwards;
+
+    animation:
+        particula8
+        1s
+        ease-out
+        forwards;
 }
 
 @keyframes particula1{
@@ -1043,6 +1173,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(-140px,-90px) scale(0);
@@ -1054,6 +1185,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(-90px,-145px) scale(0);
@@ -1065,6 +1197,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(20px,-165px) scale(0);
@@ -1076,6 +1209,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(135px,-105px) scale(0);
@@ -1087,6 +1221,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(155px,10px) scale(0);
@@ -1098,6 +1233,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(85px,105px) scale(0);
@@ -1109,6 +1245,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(-70px,115px) scale(0);
@@ -1120,6 +1257,7 @@ button{
         opacity:1;
         transform:translate(-50%,-50%) scale(1);
     }
+
     100%{
         opacity:0;
         transform:translate(-155px,35px) scale(0);
@@ -1132,25 +1270,33 @@ button{
 
 .areaJogadores{
     width:100%;
+
     display:flex;
+
     justify-content:center;
+
     gap:8px;
+
     flex-shrink:0;
 }
 
 .jogador{
     flex:1;
+
     max-width:300px;
     min-width:0;
 
     text-align:center;
 
-    background:rgba(0,0,0,.20);
+    background:
+        rgba(0,0,0,.20);
 
     border-radius:9px;
+
     padding:6px 3px;
 
     transition:.25s;
+
     position:relative;
 }
 
@@ -1159,7 +1305,8 @@ button{
 
     box-shadow:
         0 0 8px #00b7ff,
-        inset 0 0 8px rgba(0,183,255,.2);
+        inset 0 0 8px
+        rgba(0,183,255,.2);
 }
 
 .jogador.eliminado{
@@ -1168,11 +1315,15 @@ button{
 
 .jogador h2{
     color:gold;
+
     font-size:13px;
+
     margin:0 0 2px;
 
     white-space:nowrap;
+
     overflow:hidden;
+
     text-overflow:ellipsis;
 }
 
@@ -1189,19 +1340,26 @@ button{
 
 .pontuacao{
     font-size:20px;
+
     font-weight:900;
+
     color:white;
+
     margin:4px 0;
 
     text-shadow:
         0 1px 3px #000,
-        0 0 5px rgba(255,255,255,.25);
+        0 0 5px
+        rgba(255,255,255,.25);
 }
 
 .contador{
     font-size:11px;
+
     font-weight:bold;
+
     color:#ddd;
+
     margin:2px;
 }
 
@@ -1235,7 +1393,6 @@ button{
         efeitoBlackjack
         1.8s
         ease-out;
-
     z-index:20;
 }
 
@@ -1248,7 +1405,6 @@ button{
 
     20%{
         transform:scale(1.06);
-
         box-shadow:
             0 0 12px gold,
             0 0 25px gold,
@@ -1257,7 +1413,6 @@ button{
 
     45%{
         transform:scale(1.02);
-
         box-shadow:
             0 0 22px gold,
             0 0 40px rgba(255,215,0,.8),
@@ -1266,7 +1421,6 @@ button{
 
     75%{
         transform:scale(1.04);
-
         box-shadow:
             0 0 12px gold,
             inset 0 0 10px rgba(255,215,0,.25);
@@ -1287,7 +1441,6 @@ button{
 
     15%{
         transform:translateX(-7px);
-
         box-shadow:
             0 0 12px red,
             inset 0 0 12px rgba(255,0,0,.4);
@@ -1299,7 +1452,6 @@ button{
 
     45%{
         transform:translateX(-5px);
-
         box-shadow:
             0 0 20px red,
             inset 0 0 15px rgba(255,0,0,.45);
@@ -1328,7 +1480,6 @@ button{
 
     30%{
         transform:scale(1.04);
-
         box-shadow:
             0 0 12px rgba(255,255,255,.65),
             inset 0 0 8px rgba(255,255,255,.18);
@@ -1336,7 +1487,6 @@ button{
 
     60%{
         transform:scale(.98);
-
         box-shadow:
             0 0 7px rgba(255,255,255,.35);
     }
@@ -1357,13 +1507,11 @@ button{
 
     20%{
         transform:scale(1.12) rotate(2deg);
-
         box-shadow:
             0 0 15px gold,
             0 0 30px gold,
             0 0 55px orange,
             inset 0 0 20px rgba(255,215,0,.55);
-
         filter:brightness(1.35);
     }
 
@@ -1373,7 +1521,6 @@ button{
 
     60%{
         transform:scale(1.08) rotate(1deg);
-
         box-shadow:
             0 0 25px gold,
             0 0 50px orange,
@@ -1401,10 +1548,13 @@ button{
     margin:3px;
 
     display:flex;
+
     flex-wrap:wrap;
 
     justify-content:center;
+
     align-items:center;
+
     align-content:center;
 
     overflow:visible;
@@ -1414,6 +1564,7 @@ button{
     min-height:19px;
 
     font-size:12px;
+
     font-weight:bold;
 
     margin:3px;
@@ -1422,9 +1573,11 @@ button{
 .comandosJogador{
     margin-top:2px;
 
-    color:rgba(255,255,255,.55);
+    color:
+        rgba(255,255,255,.55);
 
     font-size:8px;
+
     font-weight:bold;
 }
 
@@ -1434,16 +1587,22 @@ button{
 
 .centroMesa{
     flex:1;
+
     min-height:35px;
 
     display:flex;
+
     align-items:center;
+
     justify-content:center;
 
-    color:rgba(255,255,255,.12);
+    color:
+        rgba(255,255,255,.12);
 
     font-size:25px;
+
     font-weight:bold;
+
     letter-spacing:6px;
 
     pointer-events:none;
@@ -1474,6 +1633,7 @@ button{
     flex-shrink:0;
 
     min-height:120px;
+
     overflow:visible;
 }
 
@@ -1492,13 +1652,17 @@ button{
 
 .areaDealer h2{
     color:gold;
+
     font-size:15px;
+
     margin:2px;
 }
 
 .dealerStatus{
     color:#aaa;
+
     font-size:9px;
+
     font-weight:bold;
 }
 
@@ -1508,6 +1672,7 @@ button{
 
 .pontuacaoDealer{
     font-size:20px;
+
     font-weight:900;
 
     color:white;
@@ -1516,26 +1681,33 @@ button{
 
     text-shadow:
         0 1px 3px #000,
-        0 0 5px rgba(255,255,255,.25);
+        0 0 5px
+        rgba(255,255,255,.25);
 }
 
 #cartasDealer{
+
     width:100%;
 
     display:flex;
+
     flex-wrap:wrap;
 
     justify-content:center;
+
     align-items:center;
+
     align-content:center;
 
     gap:3px;
 
     min-height:61px;
+
     overflow:visible;
 }
 
 #cartasDealer .carta{
+
     flex:0 0 40px;
 }
 
@@ -1560,10 +1732,12 @@ button{
     text-align:center;
 
     pointer-events:none;
+
     opacity:0;
 }
 
 .blackjack-overlay.mostrar{
+
     animation:
         blackjackShow
         1.8s
@@ -1576,6 +1750,7 @@ button{
     font-size:40px;
 
     font-weight:900;
+
     font-style:italic;
 
     color:#ffd700;
@@ -1591,8 +1766,11 @@ button{
 }
 
 .blackjack-sub{
+
     font-size:18px;
+
     font-weight:bold;
+
     color:white;
 }
 
@@ -1650,36 +1828,50 @@ button{
 ========================= */
 
 .painel h2{
+
     color:gold;
+
     font-size:12px;
+
     text-align:center;
+
     margin:2px;
 }
 
 .controles{
+
     display:flex;
+
     justify-content:center;
+
     flex-wrap:wrap;
 }
 
 .controles button{
+
     background:#252525;
+
     color:#aaa;
 
     border:
         1px solid #292929;
 
     padding:5px 7px;
+
     font-size:9px;
 }
 
 .controles .dealerCarta{
+
     background:#eee;
+
     color:#111;
 }
 
 .controles .nova{
+
     background:#d8b500;
+
     color:#111;
 }
 
@@ -1690,20 +1882,24 @@ button{
 .narradorControles{
 
     width:98%;
+
     max-width:700px;
 
     margin:5px auto;
 
     display:flex;
+
     justify-content:center;
 
     gap:3px;
+
     flex-wrap:wrap;
 }
 
 .botaoNarrador{
 
     background:#111;
+
     color:#888;
 
     border:
@@ -1714,12 +1910,14 @@ button{
     padding:5px 7px;
 
     font-size:8px;
+
     font-weight:bold;
 
     opacity:.85;
 }
 
 .botaoNarrador:active{
+
     transform:scale(.95);
 }
 
@@ -1728,18 +1926,25 @@ button{
 ========================= */
 
 .historico h2{
+
     color:gold;
+
     font-size:12px;
+
     margin:2px;
 }
 
 #historico{
+
     max-height:90px;
+
     overflow-y:auto;
 }
 
 .evento{
+
     font-size:9px;
+
     padding:3px;
 
     border-bottom:
@@ -1755,55 +1960,72 @@ button{
 @media(max-width:500px){
 
     .mesa{
+
         height:430px;
+
         border-width:3px;
+
         padding:7px;
     }
 
     .pontuacao{
+
         font-size:18px;
     }
 
     .pontuacaoDealer{
+
         font-size:18px;
     }
 
     .contador{
+
         font-size:10px;
     }
 
     .carta{
+
         width:35px;
+
         height:50px;
+
         font-size:13px;
     }
 
     .naipe{
+
         font-size:10px;
+
         line-height:11px;
     }
 
     #cartasDealer .carta{
+
         flex-basis:35px;
     }
 
     .vidas{
+
         font-size:16px;
     }
 
     .blackjack-text{
+
         font-size:30px;
     }
 
     .blackjack-sub{
+
         font-size:14px;
     }
 
     #narracaoTexto{
+
         font-size:14px;
     }
 
     .areaDealer{
+
         min-height:112px;
     }
 }
@@ -1815,28 +2037,36 @@ button{
 @media(max-width:360px){
 
     .mesa{
+
         height:440px;
     }
 
     .jogador{
+
         padding:4px 1px;
     }
 
     .jogador h2{
+
         font-size:11px;
     }
 
     .carta{
+
         width:31px;
+
         height:46px;
+
         font-size:11px;
     }
 
     #cartasDealer .carta{
+
         flex-basis:31px;
     }
 
     .naipe{
+
         font-size:9px;
     }
 
@@ -1864,7 +2094,9 @@ body.fullscreen-active{
 
 <body>
 
-<!-- FULL SCREEN -->
+<!-- =========================
+     FULL SCREEN
+========================= -->
 
 <div class="fullscreen-control">
 
@@ -2209,30 +2441,16 @@ body.fullscreen-active{
 
     <button
         class="botaoNarrador"
-        onclick="mensagemComandos()"
-    >
-        💬 CHAT COMMANDS
-    </button>
-
-    <button
-        class="botaoNarrador"
         onclick="mensagemLike()"
     >
-        ❤️ LEAVE A LIKE
+        LEAVE A LIKE
     </button>
 
     <button
         class="botaoNarrador"
         onclick="mensagemMeta()"
     >
-        🎯 GOAL $15
-    </button>
-
-    <button
-        class="botaoNarrador"
-        onclick="mensagemRosas()"
-    >
-        🌹 200 ROSES
+        🎯 GOAL
     </button>
 
     <button
@@ -2317,10 +2535,6 @@ body.fullscreen-active{
 
 <script>
 
-/* ============================================================
-   SEU CÓDIGO ORIGINAL (mantido intacto)
-   ============================================================ */
-
 /* =========================
    FULL SCREEN
 ========================= */
@@ -2364,7 +2578,6 @@ async function alternarTelaCheia(){
             atualizarBotaoTelaCheia();
 
         }
-
         else{
 
             if(
@@ -2392,7 +2605,6 @@ async function alternarTelaCheia(){
         }
 
     }
-
     catch(erro){
 
         console.log(
@@ -2416,6 +2628,7 @@ function atualizarBotaoTelaCheia(){
         return;
     }
 
+    /* SOMENTE O QUADRADINHO/ÍCONE */
     botao.innerHTML="⛶";
 
 }
@@ -2590,9 +2803,7 @@ function valorCarta(carta){
         ["J","Q","K"]
         .includes(carta.valor)
     ){
-
         return 10;
-
     }
 
     return Number(carta.valor);
@@ -3039,22 +3250,15 @@ function mensagemJogador(){
 
     }
 
+    const nome=
+        jogadores[turnoAtual].nome;
+
     mostrarMensagemMesa(
+
+        "🎙️ "+
+        nome.toUpperCase()+
+        ", ARE YOU THERE?<br>"+
         "🃏 HIT OR STAND?"
-    );
-
-}
-
-
-function mensagemComandos(){
-
-    mostrarMensagemMesa(
-
-        "WHEN IT'S YOUR TURN, USE THE CHAT:<br>"+
-        "1️⃣ HIT → GET ANOTHER CARD.<br>"+
-        "2️⃣ STAND → STOP AND KEEP YOUR HAND.",
-
-        5000
 
     );
 
@@ -3064,10 +3268,8 @@ function mensagemComandos(){
 function mensagemLike(){
 
     mostrarMensagemMesa(
-
-        "❤️ LEAVE A LIKE!<br>"+
+        "LEAVE A LIKE!<br>"+
         "I HOPE YOU'RE ENJOYING THE LIVE."
-
     );
 
 }
@@ -3076,22 +3278,8 @@ function mensagemLike(){
 function mensagemMeta(){
 
     mostrarMensagemMesa(
-
         "🎯 HELP ME REACH THE GOAL<br>"+
         "US$ 15"
-
-    );
-
-}
-
-
-function mensagemRosas(){
-
-    mostrarMensagemMesa(
-
-        "🎯 HELP ME REACH THE GOAL<br>"+
-        "200 🌹"
-
     );
 
 }
@@ -3157,7 +3345,7 @@ function mensagemObrigado(){
 
 
 /* =========================
-   JOIN (LOCAL)
+   JOIN
 ========================= */
 
 function entrar(){
@@ -3185,7 +3373,6 @@ function entrar(){
     if(!jogadores[1].ocupado){
         vaga=1;
     }
-
     else if(!jogadores[2].ocupado){
         vaga=2;
     }
@@ -3535,7 +3722,6 @@ async function distribuirCartaDealer(
         atualizarPontuacaoDealer();
 
     }
-
     else{
 
         area.innerHTML=
@@ -3687,7 +3873,7 @@ function iniciarTurno(numero){
 
         "It's "+
         j.nome+
-        "'s turn. Use the chat: 1️⃣ HIT or 2️⃣ STAND."
+        "'s turn. Press 1 to hit or 2 to stand."
 
     );
 
@@ -3738,9 +3924,7 @@ function podeJogar(numero){
     if(
         fase!=="players"
     ){
-
         return false;
-
     }
 
     if(
@@ -3878,7 +4062,7 @@ function cartaJogador(numero){
         j.nome+
         " has "+
         j.pontuacao+
-        " points. Use the chat: 1️⃣ HIT or 2️⃣ STAND."
+        " points. Press 1 to hit or 2 to stand."
 
     );
 
@@ -4016,7 +4200,8 @@ function revelarDealer(){
 
 
 function atualizarDealerTela(
-    animarRevelacao=false){
+    animarRevelacao=false
+){
 
     const area=
         document.getElementById(
@@ -4104,7 +4289,6 @@ function cartaDealer(){
         comprarCartaDealer();
 
     }
-
     else{
 
         finalizarRodada();
@@ -4115,8 +4299,7 @@ function cartaDealer(){
 
 
 /* =========================
-   DEALER DRAW
-========================= */
+   DEALER DRAW========================= */
 
 function comprarCartaDealer(){
 
@@ -4188,7 +4371,6 @@ function comprarCartaDealer(){
         );
 
     }
-
     else{
 
         narrar(
@@ -4225,9 +4407,7 @@ function dealerAutomatico(){
         if(
             fase!=="dealer"
         ){
-
             return;
-
         }
 
         if(
@@ -4422,7 +4602,7 @@ function mostrarEliminacao(nome){
         "</b><br>"+
         "WAS ELIMINATED!",
 
-        4000
+        5000
 
     );
 
@@ -4430,28 +4610,16 @@ function mostrarEliminacao(nome){
 
         mostrarMensagemMesa(
 
-            "❤️ THANK YOU FOR PLAYING!<br>"+
-            "FOLLOW THE CHANNEL<br>"+
-            "👍 LEAVE A LIKE!",
+            "❤️ THANK YOU SO MUCH<br>"+
+            "FOR JOINING OUR LIVE!<br>"+
+            "👍 SUBSCRIBE AND LEAVE A LIKE!<br>"+
+            "👋 SEE YOU NEXT TIME!",
 
-            4500
-
-        );
-
-    },4350);
-
-    setTimeout(()=>{
-
-        mostrarMensagemMesa(
-
-            "👋 SEE YOU NEXT TIME!<br>"+
-            "❤️ THANK YOU FOR JOINING THE LIVE!",
-
-            4500
+            5000
 
         );
 
-    },9200);
+    },5350);
 
 }
 
@@ -4505,9 +4673,7 @@ function finalizarRodada(){
             !j.ocupado ||
             j.vidas<=0
         ){
-
             continue;
-
         }
 
         if(
@@ -4912,17 +5078,13 @@ document.addEventListener(
             e.key!=="1" &&
             e.key!=="2"
         ){
-
             return;
-
         }
 
         if(
             turnoAtual===null
         ){
-
             return;
-
         }
 
         if(
@@ -4983,292 +5145,187 @@ atualizarPontuacaoDealer();
 
 atualizarBotaoTelaCheia();
 
-/* ============================================================
-   🆕 ADIÇÃO: INTEGRAÇÃO COM O SERVIDOR (SSE)
-   ============================================================ */
-
 // ============================================================
-// CLIENTE SSE - RECEBE ATUALIZAÇÕES DO SERVIDOR
+// 🆕 INTEGRAÇÃO COM O SERVIDOR (SSE) – ADICIONADO AO SEU CÓDIGO
 // ============================================================
 
-console.log('🔄 Conectando ao servidor via SSE...');
+console.log('🔄 Conectando ao servidor...');
+
+// ============================================================
+// 1. CONEXÃO SSE
+// ============================================================
+let serverGameState = {
+    players: [],
+    phase: 'waiting',
+    currentTurn: null
+};
 
 const eventSource = new EventSource('/events');
 
-// Estado recebido do servidor
-let serverGameState = {
-  players: [],
-  dealerHand: [],
-  dealerScore: 0,
-  phase: 'waiting',
-  currentTurn: null
-};
-
-// Controle de vidas para animações
-let vidasAnteriores = {};
-
-// ============================================================
-// RECEBE EVENTOS DO SERVIDOR
-// ============================================================
-
 eventSource.onmessage = function(event) {
-  try {
-    const data = JSON.parse(event.data);
-    
-    if (data.type === 'state') {
-      const novoEstado = data.data;
-      
-      // Verifica mudanças nas vidas
-      verificarMudancasVidas(novoEstado);
-      
-      // Atualiza o estado do servidor
-      serverGameState = novoEstado;
-      
-      // 🔥 ATUALIZA A INTERFACE COM OS DADOS DO SERVIDOR
-      atualizarInterfaceServidor(novoEstado);
-      
-    } else if (data.type === 'message') {
-      // Mensagens do servidor aparecem na narração e histórico
-      narrar(data.data);
-      evento(data.data);
+    try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'state') {
+            serverGameState = data.data;
+            atualizarJogadoresDoServidor(serverGameState);
+        } else if (data.type === 'message') {
+            narrar(data.data);
+            evento(data.data);
+        }
+    } catch (e) {
+        console.error('SSE error:', e);
     }
-  } catch (e) {
-    console.error('Erro ao processar evento SSE:', e);
-  }
 };
 
 eventSource.onerror = function() {
-  console.log('⚠️ SSE desconectado. Tentando reconectar...');
-  // O navegador reconecta automaticamente
+    console.log('⚠️ SSE desconectado, reconectando...');
 };
 
 // ============================================================
-// VERIFICA MUDANÇAS NAS VIDAS (para animações)
+// 2. ATUALIZAR JOGADORES VIA SERVIDOR (SOBREESCREVE OS LOCAIS)
 // ============================================================
+function atualizarJogadoresDoServidor(game) {
+    // Atualiza o status da mesa
+    const statusMap = {
+        'waiting': '🟢 WAITING FOR PLAYERS',
+        'dealing': '🃏 DEALING CARDS...',
+        'players': '🎯 PLAYERS TURN',
+        'dealer': '🎩 DEALER TURN',
+        'result': '🏁 ROUND OVER'
+    };
+    document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase;
 
-function verificarMudancasVidas(novoEstado) {
-  for (const player of novoEstado.players) {
-    const id = player.id;
-    const vidasAtuais = player.lives;
-    const vidasAntes = vidasAnteriores[id] || vidasAtuais;
+    // Atualiza os dois jogadores
+    const seats = [1, 2];
+    seats.forEach((seat, index) => {
+        const player = game.players[index];
+        const box = document.getElementById('box' + seat);
+        const titulo = document.getElementById('titulo' + seat);
+        const status = document.getElementById('status' + seat);
+        const vidas = document.getElementById('vidas' + seat);
+        const pontuacao = document.getElementById('pontuacao' + seat);
+        const contador = document.getElementById('contador' + seat);
+        const cartas = document.getElementById('cartas' + seat);
+        const resultado = document.getElementById('resultado' + seat);
 
-    if (vidasAtuais < vidasAntes) {
-      // Perdeu vida → animação de perda
-      mostrarMensagemMesa(`💔 @${player.nickname} PERDEU UMA VIDA!`, 2000);
-      
-      if (vidasAtuais <= 0) {
-        // Eliminado → explosão de corações
-        setTimeout(() => {
-          animarExplosaoVidas();
-          mostrarMensagemMesa(`💀 @${player.nickname} FOI ELIMINADO!`, 4000);
-        }, 300);
-      }
-    } else if (vidasAtuais > vidasAntes) {
-      // Ganhou vida
-      mostrarMensagemMesa(`❤️ @${player.nickname} GANHOU UMA VIDA!`, 2000);
-    }
+        if (player) {
+            // Preenche com dados do servidor
+            titulo.innerHTML = '👤 ' + player.nickname;
+            vidas.innerHTML = htmlVidas(player.lives || 3);
+            pontuacao.innerHTML = (player.score || 0) + ' points';
+            contador.innerHTML = '🃏 ' + (player.hand ? player.hand.length : 0) + ' cards';
 
-    vidasAnteriores[id] = vidasAtuais;
-  }
+            // Cartas
+            if (player.hand && player.hand.length > 0) {
+                cartas.innerHTML = player.hand.map(c => {
+                    if (typeof c === 'string') {
+                        const valor = c.replace(/[♥♦♣♠]/g, '');
+                        const naipe = c.replace(/[^♥♦♣♠]/g, '');
+                        return `<span class="carta">${valor}<span class="naipe">${naipe}</span></span>`;
+                    } else {
+                        return `<span class="carta">${c.value}<span class="naipe">${c.suit}</span></span>`;
+                    }
+                }).join('');
+            } else {
+                cartas.innerHTML = '';
+            }
 
-  // Remove jogadores que saíram
-  const idsAtivos = novoEstado.players.map(p => p.id);
-  for (const id of Object.keys(vidasAnteriores)) {
-    if (!idsAtivos.includes(id)) {
-      delete vidasAnteriores[id];
-    }
-  }
-}
+            // Status
+            box.classList.remove('eliminado');
+            if (player.lives <= 0) {
+                box.classList.add('eliminado');
+                status.innerHTML = '💀 ELIMINATED';
+            } else if (player.busted) {
+                status.innerHTML = '💥 BUSTED';
+                resultado.innerHTML = '💀 LOST!';
+            } else if (player.stand) {
+                status.innerHTML = '🛑 STAND';
+                resultado.innerHTML = '✅ ' + player.score + ' pts';
+            } else if (game.currentTurn === player.id && game.phase === 'players') {
+                status.innerHTML = '🔵 YOUR TURN';
+                box.classList.add('vez');
+            } else {
+                status.innerHTML = '🟡 WAITING';
+                box.classList.remove('vez');
+            }
 
-// ============================================================
-// ATUALIZA INTERFACE COM DADOS DO SERVIDOR
-// ============================================================
-
-function atualizarInterfaceServidor(game) {
-  // 1. Status da mesa
-  const statusMap = {
-    'waiting': '🟢 WAITING FOR PLAYERS',
-    'dealing': '🃏 DEALING CARDS...',
-    'players': '🎯 PLAYERS TURN',
-    'dealer': '🎩 DEALER TURN',
-    'result': '🏁 ROUND OVER'
-  };
-  document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase.toUpperCase();
-
-  // 2. Dealer
-  const dealerArea = document.getElementById('cartasDealer');
-  if (game.dealerHand && game.dealerHand.length > 0) {
-    dealerArea.innerHTML = game.dealerHand.map(c => htmlCartaServidor(c)).join('');
-  } else {
-    dealerArea.innerHTML = '';
-  }
-  document.getElementById('pontuacaoDealer').innerHTML = game.dealerScore + ' points';
-
-  if (game.phase === 'dealer') {
-    document.getElementById('dealerStatus').innerHTML = '🟡 DEALER\'S TURN';
-    document.getElementById('dealerStatus').classList.add('ativo');
-    document.getElementById('areaDealer').classList.add('vezDealer');
-  } else {
-    document.getElementById('dealerStatus').innerHTML = '⚪ WAITING';
-    document.getElementById('dealerStatus').classList.remove('ativo');
-    document.getElementById('areaDealer').classList.remove('vezDealer');
-  }
-
-  // 3. Jogadores (até 2)
-  const seats = [1, 2];
-  seats.forEach((seat, index) => {
-    const player = game.players[index];
-    const box = document.getElementById('box' + seat);
-    const titulo = document.getElementById('titulo' + seat);
-    const status = document.getElementById('status' + seat);
-    const vidas = document.getElementById('vidas' + seat);
-    const pontuacao = document.getElementById('pontuacao' + seat);
-    const contador = document.getElementById('contador' + seat);
-    const cartas = document.getElementById('cartas' + seat);
-    const resultado = document.getElementById('resultado' + seat);
-
-    if (player) {
-      // Dados do jogador
-      titulo.innerHTML = '👤 ' + player.nickname;
-      vidas.innerHTML = htmlVidas(player.lives);
-      pontuacao.innerHTML = player.score + ' points';
-      contador.innerHTML = '🃏 ' + player.hand.length + ' cards';
-      
-      // Cartas
-      if (player.hand && player.hand.length > 0) {
-        cartas.innerHTML = player.hand.map(c => htmlCartaServidor(c)).join('');
-      } else {
-        cartas.innerHTML = '';
-      }
-
-      // Status
-      if (player.lives <= 0) {
-        box.classList.add('eliminado');
-        status.innerHTML = '💀 ELIMINATED';
-      } else {
-        box.classList.remove('eliminado');
-        if (player.busted) {
-          status.innerHTML = '💥 BUSTED';
-          resultado.innerHTML = '💀 LOST!';
-        } else if (player.stand) {
-          status.innerHTML = '🛑 STAND';
-          resultado.innerHTML = '✅ ' + player.score + ' pts';
-        } else if (game.currentTurn === player.id && game.phase === 'players') {
-          status.innerHTML = '🔵 YOUR TURN';
-          box.classList.add('vez');
+            if (player.blackjack) {
+                status.innerHTML = '🃏 BLACKJACK!';
+                resultado.innerHTML = '🃏 BLACKJACK!';
+                mostrarBlackjack(player.nickname, player.score);
+            }
         } else {
-          status.innerHTML = '🟡 WAITING';
-          box.classList.remove('vez');
+            // Assento vazio
+            titulo.innerHTML = '👤 SEAT ' + seat;
+            status.innerHTML = '⚪ OPEN';
+            vidas.innerHTML = htmlVidas(3);
+            pontuacao.innerHTML = '0 points';
+            contador.innerHTML = '🃏 0 cards';
+            cartas.innerHTML = '';
+            resultado.innerHTML = '';
+            box.classList.remove('vez', 'eliminado');
         }
-      }
-
-      if (player.blackjack) {
-        status.innerHTML = '🃏 BLACKJACK!';
-        resultado.innerHTML = '🃏 BLACKJACK!';
-        mostrarBlackjack(player.nickname, player.score);
-      }
-
-    } else {
-      // Assento vazio
-      titulo.innerHTML = '👤 SEAT ' + seat;
-      status.innerHTML = '⚪ OPEN';
-      vidas.innerHTML = htmlVidas(3);
-      pontuacao.innerHTML = '0 points';
-      contador.innerHTML = '🃏 0 cards';
-      cartas.innerHTML = '';
-      resultado.innerHTML = '';
-      box.classList.remove('vez', 'eliminado');
-    }
-  });
+    });
 }
 
 // ============================================================
-// FUNÇÕES AUXILIARES PARA CARTAS DO SERVIDOR
+// 3. SOBRESCREVER FUNÇÕES DOS JOGADORES PARA USAR O SERVIDOR
 // ============================================================
 
-function htmlCartaServidor(carta) {
-  // Carta pode vir como objeto { value, suit } ou string "A♥️"
-  if (typeof carta === 'string') {
-    // Tenta extrair valor e naipe
-    const suitMap = { '♥': '♥️', '♦': '♦️', '♣': '♣️', '♠': '♠️' };
-    const value = carta.replace(/[♥♦♣♠]/g, '');
-    const suit = carta.replace(/[^♥♦♣♠]/g, '');
-    return `<span class="carta">${value}<span class="naipe">${suitMap[suit] || suit}</span></span>`;
-  }
-  return `<span class="carta">${carta.value}<span class="naipe">${carta.suit}</span></span>`;
-}
-
-// ============================================================
-// SUBSTITUI AS FUNÇÕES ORIGINAIS PARA USAR O SERVIDOR
-// ============================================================
-
-// Guarda as funções originais
+// Guarda a função original para não perder
 const _cartaJogadorOriginal = cartaJogador;
 const _pararOriginal = parar;
 const _entrarOriginal = entrar;
 
-// Substitui para enviar comandos ao servidor
+// Sobrescreve para enviar comandos ao servidor
 cartaJogador = function(numero) {
-  const player = serverGameState.players[numero - 1];
-  if (!player) {
-    alert('Nenhum jogador nessa posição.');
-    return;
-  }
-  if (serverGameState.currentTurn !== player.id) {
-    alert('⏳ Não é a vez deste jogador.');
-    return;
-  }
-  
-  fetch('/game-state', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'hit', userId: player.id })
-  }).catch(err => console.error('Erro no HIT:', err));
+    const player = serverGameState.players[numero - 1];
+    if (!player) {
+        alert('Nenhum jogador nesta posição.');
+        return;
+    }
+    if (serverGameState.currentTurn !== player.id) {
+        alert('⏳ Não é a vez deste jogador.');
+        return;
+    }
+    fetch('/game-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'hit', userId: player.id })
+    }).catch(err => console.error('Erro no HIT:', err));
 };
 
 parar = function(numero) {
-  const player = serverGameState.players[numero - 1];
-  if (!player) {
-    alert('Nenhum jogador nessa posição.');
-    return;
-  }
-  if (serverGameState.currentTurn !== player.id) {
-    alert('⏳ Não é a vez deste jogador.');
-    return;
-  }
-  
-  fetch('/game-state', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ action: 'stand', userId: player.id })
-  }).catch(err => console.error('Erro no STAND:', err));
+    const player = serverGameState.players[numero - 1];
+    if (!player) {
+        alert('Nenhum jogador nesta posição.');
+        return;
+    }
+    if (serverGameState.currentTurn !== player.id) {
+        alert('⏳ Não é a vez deste jogador.');
+        return;
+    }
+    fetch('/game-state', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'stand', userId: player.id })
+    }).catch(err => console.error('Erro no STAND:', err));
 };
 
-// O JOIN agora avisa para usar o TikTok
+// JOIN agora avisa para usar o TikTok
 entrar = function() {
-  const input = document.getElementById('nomeEntrada');
-  const nome = input.value.trim();
-  if (!nome) {
-    alert('Digite um nome para teste local.');
-    return;
-  }
-  alert('Para entrar na mesa, use o comando BLACKJACK no chat do TikTok.');
-  input.value = '';
+    const input = document.getElementById('nomeEntrada');
+    const nome = input.value.trim();
+    if (!nome) {
+        alert('Digite um nome para teste local.');
+        return;
+    }
+    alert('Para entrar na mesa, use o comando BLACKJACK no chat do TikTok.');
+    input.value = '';
 };
 
-// Botões do dealer ficam com alerta informativo
-cartaDealer = function() {
-  alert('O dealer é controlado pelo bot automaticamente.');
-};
-revelarDealer = function() {
-  alert('O dealer é controlado pelo bot automaticamente.');
-};
-dealerAutomatico = function() {
-  alert('O dealer é controlado pelo bot automaticamente.');
-};
-novaRodada = function() {
-  alert('As rodadas são iniciadas automaticamente pelo bot.');
-};
+// As funções do dealer (cartaDealer, revelarDealer, dealerAutomatico, novaRodada)
+// permanecem as mesmas do seu código original (MANUAIS)
 
 console.log('✅ Integração com servidor ativada!');
 console.log('📡 Aguardando eventos do servidor...');
