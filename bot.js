@@ -8,6 +8,10 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// =====================================================
+// CONFIGURATION
+// =====================================================
+
 const PORT = process.env.PORT || 10000;
 const USERNAME = process.env.TIKTOK_USERNAME;
 
@@ -16,10 +20,18 @@ if (!USERNAME) {
   process.exit(1);
 }
 
+// =====================================================
+// EXPRESS + SSE
+// =====================================================
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// =====================================================
+// GAME STATE
+// =====================================================
 
 const game = {
   phase: 'waiting',
@@ -32,7 +44,7 @@ const game = {
 };
 
 // =====================================================
-// DECK (simplificado)
+// DECK
 // =====================================================
 
 function createDeck() {
@@ -226,6 +238,7 @@ function checkRoundEnd() {
     }
   }
 
+  // Dealer turn - MANUAL (frontend controls it)
   game.phase = 'dealer';
   broadcastState();
   broadcastMessage('🎩 Dealer turn. Use Dealer Control buttons.');
