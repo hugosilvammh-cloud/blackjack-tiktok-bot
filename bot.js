@@ -8,10 +8,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// =====================================================
-// CONFIGURATION
-// =====================================================
-
 const PORT = process.env.PORT || 10000;
 const USERNAME = process.env.TIKTOK_USERNAME;
 
@@ -20,21 +16,13 @@ if (!USERNAME) {
   process.exit(1);
 }
 
-// =====================================================
-// EXPRESS + SSE
-// =====================================================
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// =====================================================
-// GAME STATE
-// =====================================================
-
 const game = {
-  phase: 'waiting', // waiting | dealing | players | dealer | result
+  phase: 'waiting',
   players: [],
   dealerHand: [],
   dealerScore: 0,
@@ -44,7 +32,7 @@ const game = {
 };
 
 // =====================================================
-// DECK
+// DECK (simplificado)
 // =====================================================
 
 function createDeck() {
@@ -91,15 +79,15 @@ function handScore(hand) {
 
 function addPlayer(userId, nickname) {
   if (game.players.find(p => p.id === userId)) {
-    broadcastMessage(`@${nickname} is already at the table.`);
+    broadcastMessage(`@${nickname} already at table.`);
     return false;
   }
   if (game.players.length >= game.maxPlayers) {
-    broadcastMessage(`Table is full! @${nickname} cannot join.`);
+    broadcastMessage(`Table full! @${nickname} cannot join.`);
     return false;
   }
   if (game.phase !== 'waiting' && game.phase !== 'result') {
-    broadcastMessage(`⏳ Game in progress, @${nickname}. Wait for the next round.`);
+    broadcastMessage(`⏳ Game in progress, @${nickname}. Wait for next round.`);
     return false;
   }
 
@@ -114,13 +102,13 @@ function addPlayer(userId, nickname) {
     blackjack: false,
   });
 
-  broadcastMessage(`🃏 @${nickname} joined the table! (${game.players.length}/${game.maxPlayers})`);
+  broadcastMessage(`🃏 @${nickname} joined table! (${game.players.length}/${game.maxPlayers})`);
   broadcastState();
 
   if (game.players.length === 1) {
     setTimeout(() => {
       if (game.phase === 'waiting' || game.phase === 'result') {
-        broadcastMessage('🎯 Only one player? Let\'s start!');
+        broadcastMessage('🎯 Only one player? Starting!');
         startRound();
       }
     }, 3000);
@@ -157,7 +145,6 @@ function startRound() {
     }
   }
 
-  // DEALER RECEIVES ONLY 1 CARD (face up)
   game.dealerHand = [drawCard()];
 
   for (const p of game.players) {
@@ -174,7 +161,7 @@ function startRound() {
   game.currentTurn = firstPlayer ? firstPlayer.id : null;
 
   broadcastState();
-  broadcastMessage(`🎯 New round! It's @${game.currentTurn ? game.players.find(p => p.id === game.currentTurn).nickname : 'no one'}'s turn.`);
+  broadcastMessage(`🎯 New round! @${game.currentTurn ? game.players.find(p => p.id === game.currentTurn).nickname : 'no one'}'s turn.`);
 }
 
 function hitPlayer(userId) {
@@ -191,7 +178,7 @@ function hitPlayer(userId) {
     player.lives--;
     broadcastMessage(`💥 @${player.nickname} busted! Lost a life.`);
     if (player.lives <= 0) {
-      broadcastMessage(`💀 @${player.nickname} was eliminated!`);
+      broadcastMessage(`💀 @${player.nickname} eliminated!`);
       game.players = game.players.filter(p => p.id !== userId);
       if (game.currentTurn === userId) {
         const next = game.players.find(p => !p.stand && !p.busted);
@@ -231,7 +218,7 @@ function checkRoundEnd() {
       if (!next.stand && !next.busted) {
         game.currentTurn = next.id;
         broadcastState();
-        broadcastMessage(`🎯 It's @${next.nickname}'s turn.`);
+        broadcastMessage(`🎯 @${next.nickname}'s turn.`);
         return;
       }
       nextIndex = (nextIndex + 1) % game.players.length;
@@ -241,7 +228,7 @@ function checkRoundEnd() {
 
   game.phase = 'dealer';
   broadcastState();
-  broadcastMessage('🎩 Dealer\'s turn. Use the Dealer Control buttons.');
+  broadcastMessage('🎩 Dealer turn. Use Dealer Control buttons.');
 }
 
 // =====================================================
@@ -305,14 +292,14 @@ app.get('/events', (req, res) => {
 // =====================================================
 
 console.log(`🤖 Blackjack TikTok Bot starting...`);
-console.log(`🎯 Looking for LIVE of @${USERNAME}`);
+console.log(`🎯 Looking for @${USERNAME}`);
 
 const connection = new WebcastPushConnection(USERNAME);
 
 async function connectToLive() {
   try {
     const state = await connection.connect();
-    console.log(`✅ Connected to LIVE! Room ID: ${state.roomId}`);
+    console.log(`✅ Connected! Room ID: ${state.roomId}`);
   } catch (error) {
     console.error('❌ Connection error:', error.message);
     console.log('🔄 Retrying in 30 seconds...');
@@ -320,17 +307,14 @@ async function connectToLive() {
   }
 }
 
-// =====================================================
 // CHAT
-// =====================================================
-
 connection.on('chat', (data) => {
   const userId = data.userId || data?.user?.id || null;
   const nickname = data.uniqueId || data?.user?.nickname || 'anon';
   const comment = data.comment || '';
 
   if (!userId) {
-    console.log('⚠️ User without ID, ignoring.');
+    console.log('⚠️ No user ID, ignoring.');
     return;
   }
 
@@ -353,7 +337,7 @@ connection.on('chat', (data) => {
 });
 
 connection.on('disconnected', () => {
-  console.log('⚠️ Disconnected from TikTok. Retrying...');
+  console.log('⚠️ Disconnected. Retrying...');
   setTimeout(connectToLive, 5000);
 });
 
@@ -363,9 +347,9 @@ connection.on('disconnected', () => {
 
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🌐 HTTP Server running on port ${PORT}`);
-  console.log(`📡 SSE at /events`);
-  console.log(`📡 GET /state`);
-  console.log(`📡 POST /game-state`);
+  console.log(`🌐 Server running on port ${PORT}`);
+  console.log(`📡 SSE: /events`);
+  console.log(`📡 GET: /state`);
+  console.log(`📡 POST: /game-state`);
   connectToLive();
 });
