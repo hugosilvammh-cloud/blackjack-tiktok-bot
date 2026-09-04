@@ -8,10 +8,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// =====================================================
-// CONFIGURATION
-// =====================================================
-
 const PORT = process.env.PORT || 10000;
 const USERNAME = process.env.TIKTOK_USERNAME;
 
@@ -20,18 +16,10 @@ if (!USERNAME) {
   process.exit(1);
 }
 
-// =====================================================
-// EXPRESS + SSE
-// =====================================================
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-// =====================================================
-// GAME STATE
-// =====================================================
 
 const game = {
   phase: 'waiting',
@@ -42,10 +30,6 @@ const game = {
   maxPlayers: 2,
   messages: [],
 };
-
-// =====================================================
-// DECK
-// =====================================================
 
 function createDeck() {
   const suits = ['♥️', '♦️', '♣️', '♠️'];
@@ -84,10 +68,6 @@ function handScore(hand) {
   }
   return total;
 }
-
-// =====================================================
-// GAME FUNCTIONS
-// =====================================================
 
 function addPlayer(userId, nickname) {
   if (game.players.find(p => p.id === userId)) {
@@ -238,15 +218,10 @@ function checkRoundEnd() {
     }
   }
 
-  // Dealer turn - MANUAL (frontend controls it)
   game.phase = 'dealer';
   broadcastState();
   broadcastMessage('🎩 Dealer turn. Use Dealer Control buttons.');
 }
-
-// =====================================================
-// BROADCAST
-// =====================================================
 
 let clients = [];
 
@@ -264,10 +239,6 @@ function broadcastMessage(text) {
   });
   console.log(`📢 ${text}`);
 }
-
-// =====================================================
-// HTTP ROUTES
-// =====================================================
 
 app.get('/state', (req, res) => {
   res.json(game);
@@ -300,10 +271,6 @@ app.get('/events', (req, res) => {
   });
 });
 
-// =====================================================
-// TIKTOK LIVE
-// =====================================================
-
 console.log(`🤖 Blackjack TikTok Bot starting...`);
 console.log(`🎯 Looking for @${USERNAME}`);
 
@@ -314,13 +281,12 @@ async function connectToLive() {
     const state = await connection.connect();
     console.log(`✅ Connected! Room ID: ${state.roomId}`);
   } catch (error) {
-    console.error('❌ Connection error:', error.message);
-    console.log('🔄 Retrying in 30 seconds...');
+    console.log(`⏳ User @${USERNAME} is not online. Bot will retry in background.`);
+    // Não faz o bot travar – ele continua rodando e tentando
     setTimeout(connectToLive, 30000);
   }
 }
 
-// CHAT
 connection.on('chat', (data) => {
   const userId = data.userId || data?.user?.id || null;
   const nickname = data.uniqueId || data?.user?.nickname || 'anon';
@@ -354,15 +320,12 @@ connection.on('disconnected', () => {
   setTimeout(connectToLive, 5000);
 });
 
-// =====================================================
-// START SERVER
-// =====================================================
-
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Server running on port ${PORT}`);
   console.log(`📡 SSE: /events`);
   console.log(`📡 GET: /state`);
   console.log(`📡 POST: /game-state`);
+  // Inicia a conexão com TikTok
   connectToLive();
 });
