@@ -1,5 +1,4 @@
 import express from 'express';
-import http from 'http';
 import { WebcastPushConnection } from 'tiktok-live-connector';
 import cors from 'cors';
 import path from 'path';
@@ -16,10 +15,18 @@ if (!USERNAME) {
   process.exit(1);
 }
 
+// =====================================================
+// EXPRESS
+// =====================================================
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// =====================================================
+// GAME STATE
+// =====================================================
 
 const game = {
   phase: 'waiting',
@@ -30,6 +37,10 @@ const game = {
   maxPlayers: 2,
   messages: [],
 };
+
+// =====================================================
+// DECK
+// =====================================================
 
 function createDeck() {
   const suits = ['♥️', '♦️', '♣️', '♠️'];
@@ -68,6 +79,10 @@ function handScore(hand) {
   }
   return total;
 }
+
+// =====================================================
+// GAME FUNCTIONS
+// =====================================================
 
 function addPlayer(userId, nickname) {
   if (game.players.find(p => p.id === userId)) {
@@ -223,6 +238,10 @@ function checkRoundEnd() {
   broadcastMessage('🎩 Dealer turn. Use Dealer Control buttons.');
 }
 
+// =====================================================
+// BROADCAST
+// =====================================================
+
 let clients = [];
 
 function broadcastState() {
@@ -239,6 +258,10 @@ function broadcastMessage(text) {
   });
   console.log(`📢 ${text}`);
 }
+
+// =====================================================
+// HTTP ROUTES
+// =====================================================
 
 app.get('/state', (req, res) => {
   res.json(game);
@@ -271,6 +294,10 @@ app.get('/events', (req, res) => {
   });
 });
 
+// =====================================================
+// TIKTOK LIVE
+// =====================================================
+
 console.log(`🤖 Blackjack TikTok Bot starting...`);
 console.log(`🎯 Looking for @${USERNAME}`);
 
@@ -281,8 +308,7 @@ async function connectToLive() {
     const state = await connection.connect();
     console.log(`✅ Connected! Room ID: ${state.roomId}`);
   } catch (error) {
-    console.log(`⏳ User @${USERNAME} is not online. Bot will retry in background.`);
-    // Não faz o bot travar – ele continua rodando e tentando
+    console.log(`⏳ User @${USERNAME} not online. Retrying in 30s...`);
     setTimeout(connectToLive, 30000);
   }
 }
@@ -320,12 +346,14 @@ connection.on('disconnected', () => {
   setTimeout(connectToLive, 5000);
 });
 
-const server = http.createServer(app);
-server.listen(PORT, '0.0.0.0', () => {
+// =====================================================
+// START SERVER - GARANTIDO
+// =====================================================
+
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🌐 Server running on port ${PORT}`);
   console.log(`📡 SSE: /events`);
   console.log(`📡 GET: /state`);
   console.log(`📡 POST: /game-state`);
-  // Inicia a conexão com TikTok
   connectToLive();
 });
