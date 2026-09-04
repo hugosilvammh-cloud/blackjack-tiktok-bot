@@ -1,5 +1,5 @@
 import express from 'express';
-import { WebcastPushConnection } from 'tiktok-live-connector';
+import { TikTokLiveConnection, WebcastEvent } from 'tiktok-live-connector';
 import cors from 'cors';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -14,10 +14,6 @@ if (!USERNAME) {
   console.error('❌ TIKTOK_USERNAME not configured.');
   process.exit(1);
 }
-
-// =====================================================
-// EXPRESS
-// =====================================================
 
 const app = express();
 app.use(cors());
@@ -301,53 +297,111 @@ app.get('/events', (req, res) => {
 console.log(`🤖 Blackjack TikTok Bot starting...`);
 console.log(`🎯 Looking for @${USERNAME}`);
 
-const connection = new WebcastPushConnection(USERNAME);
+const connection = new TikTokLiveConnection(USERNAME, {
+  processInitialData: false,
+});
 
 async function connectToLive() {
   try {
     const state = await connection.connect();
     console.log(`✅ Connected! Room ID: ${state.roomId}`);
   } catch (error) {
-    console.log(`⏳ User @${USERNAME} not online. Retrying in 30s...`);
+    console.log(`⏳ @${USERNAME} not online. Bot will retry in background.`);
     setTimeout(connectToLive, 30000);
   }
 }
 
-connection.on('chat', (data) => {
-  const userId = data.userId || data?.user?.id || null;
-  const nickname = data.uniqueId || data?.user?.nickname || 'anon';
-  const comment = data.comment || '';
+// =====================================================
+// CHAT - CORRECT VERSION
+// =====================================================
 
-  if (!userId) {
-    console.log('⚠️ No user ID, ignoring.');
+connection.on(WebcastEvent.CHAT, (data) => {
+  const userId = data?.user?.id || data?.userId || null;
+  const nickname = data?.user?.nickname || data?.user?.uniqueId || data?.nickname || 'anon';
+
+  let comment = null;
+
+  if (data?.comment) comment = data.comment;
+  else if (data?.text) comment = data.text;
+  else if (data?.content) comment = data.content;
+  else if (data?.message) comment = data.message;
+  else {
+    const possibleTexts = [];
+    const searchForText = (obj, path = '') => {
+      if (!obj || typeof obj !== 'object') return;
+      for (const [key, value] of Object.entries(obj)) {
+        if (typeof value === 'string' && value.length > 0 && value.length < 500) {
+          if (!value.match(/^\d+$/) && !value.startsWith('http') && !value.includes('2026')) {
+            possibleTexts.push({ path: `${path}.${key}`, value });
+          }
+        } else if (value && typeof value === 'object') {
+          searchForText(value, `${path}.${key}`);
+        }
+      }
+    };
+    searchForText(data);
+    if (possibleTexts.length > 0) {
+      const priorityPaths = ['comment', 'text', 'content', 'message', 'describe'];
+      for (const priority of priorityPaths) {
+        const found = possibleTexts.find(p => p.path.includes(priority));
+        if (found) {
+          comment = found.value;
+          break;
+        }
+      }
+      if (!comment) {
+        comment = possibleTexts[0]?.value || null;
+      }
+    }
+  }
+
+  if (!comment || comment.trim() === '') {
+    console.log(`⚠️ Empty comment or not found for @${nickname}`);
     return;
   }
 
   const message = comment.trim().toUpperCase();
-  console.log(`💬 @${nickname} (${userId}): ${message}`);
+  console.log(`💬 @${nickname} (${userId || 'no ID'}): ${message}`);
+
+  const finalUserId = userId || data?.user?.uniqueId || data?.uniqueId || `user_${Date.now()}`;
 
   if (message === 'BLACKJACK') {
-    addPlayer(userId, nickname);
+    addPlayer(finalUserId, nickname);
     return;
   }
 
-  const player = game.players.find(p => p.id === userId);
+  const player = game.players.find(p => p.id === finalUserId);
   if (!player) return;
 
   if (message === '1') {
-    hitPlayer(userId);
+    hitPlayer(finalUserId);
   } else if (message === '2') {
-    standPlayer(userId);
+    standPlayer(finalUserId);
   }
 });
 
-connection.on('disconnected', () => {
-  console.log('⚠️ Disconnected. Retrying...');
-  setTimeout(connectToLive, 5000);
+connection.on(WebcastEvent.MEMBER, (data) => {
+  const name = data?.user?.nickname || 'someone';
+  console.log(`👤 @${name} entered the LIVE.`);
+});
+
+connection.on(WebcastEvent.LIKE, (data) => {
+  const name = data?.user?.nickname || 'someone';
+  console.log(`❤️ @${name} liked.`);
+});
+
+connection.on(WebcastEvent.GIFT, (data) => {
+  const name = data?.user?.nickname || 'someone';
+  console.log(`🎁 @${name} sent a gift.`);
+});
+
+connection.on(WebcastEvent.STREAM_END, () => {
+  console.log('🔴 LIVE ended.');
+  broadcastMessage('🔴 LIVE ended. Bot waiting for next one.');
 });
 
 // =====================================================
-// START SERVER - GARANTIDO
+// START SERVER
 // =====================================================
 
 app.listen(PORT, '0.0.0.0', () => {
