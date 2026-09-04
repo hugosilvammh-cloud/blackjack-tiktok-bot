@@ -239,9 +239,6 @@ function checkRoundEnd() {
     }
   }
 
-  // ROUND END - DEALER PLAYS AUTOMATICALLY (but you control it manually from the frontend)
-  // IMPORTANT: The dealer will NOT play automatically here.
-  // The frontend controls the dealer manually with the buttons.
   game.phase = 'dealer';
   broadcastState();
   broadcastMessage('🎩 Dealer\'s turn. Use the Dealer Control buttons.');
