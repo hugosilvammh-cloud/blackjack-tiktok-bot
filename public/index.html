@@ -5299,9 +5299,201 @@ function atualizarJogadoresDoServidor(game) {
         }
     });
 }
+/* =========================
+   START
+========================= */
+
+criarBaralho();
+
+atualizarPontuacaoDealer();
+
+atualizarBotaoTelaCheia();
 
 // ============================================================
-// 🆕 SOBRESCREVER FUNÇÕES DOS JOGADORES PARA USAR O SERVIDOR
+// 🆕 INTEGRAÇÃO COM O SERVIDOR (SSE) - MANTÉM SUAS ANIMAÇÕES
+// ============================================================
+
+console.log('🔄 Connecting to server...');
+
+let serverGameState = {
+    players: [],
+    phase: 'waiting',
+    currentTurn: null
+};
+
+let vidasAnteriores = {};
+let cartasAnteriores = { 1: [], 2: [] };
+
+const eventSource = new EventSource('/events');
+
+eventSource.onmessage = function(event) {
+    try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'state') {
+            const novoEstado = data.data;
+            
+            verificarMudancasVidasComAnimacao(novoEstado);
+            verificarCartasNovas(novoEstado);
+            serverGameState = novoEstado;
+            atualizarInterfaceComAnimacoes(novoEstado);
+            
+        } else if (data.type === 'message') {
+            narrar(data.data);
+            evento(data.data);
+        }
+    } catch (e) {
+        console.error('SSE error:', e);
+    }
+};
+
+eventSource.onerror = function() {
+    console.log('⚠️ SSE disconnected, reconnecting...');
+};
+
+// ============================================================
+// 🆕 VERIFICA MUDANÇAS NAS VIDAS (USA SUAS ANIMAÇÕES)
+// ============================================================
+
+function verificarMudancasVidasComAnimacao(game) {
+    for (const player of game.players) {
+        const id = player.id;
+        const vidasAtuais = player.lives || 3;
+        const vidasAntes = vidasAnteriores[id] || vidasAtuais;
+        const seat = game.players.indexOf(player) + 1;
+
+        if (vidasAtuais < vidasAntes) {
+            if (seat >= 1 && seat <= 2) {
+                if (jogadores[seat]) {
+                    jogadores[seat].vidas = vidasAtuais;
+                    atualizarJogador(seat);
+                }
+                if (vidasAtuais <= 0) {
+                    setTimeout(() => {
+                        animarExplosaoVidas();
+                        mostrarMensagemMesa(`💀 @${player.nickname} WAS ELIMINATED!`, 4000);
+                    }, 300);
+                } else {
+                    mostrarMensagemMesa(`💔 @${player.nickname} LOST A LIFE!`, 2000);
+                }
+            }
+        } else if (vidasAtuais > vidasAntes) {
+            if (seat >= 1 && seat <= 2) {
+                if (jogadores[seat]) {
+                    jogadores[seat].vidas = vidasAtuais;
+                    atualizarJogador(seat);
+                }
+                mostrarMensagemMesa(`❤️ @${player.nickname} GAINED A LIFE!`, 2000);
+            }
+        }
+        vidasAnteriores[id] = vidasAtuais;
+    }
+
+    const idsAtivos = game.players.map(p => p.id);
+    for (const id of Object.keys(vidasAnteriores)) {
+        if (!idsAtivos.includes(id)) {
+            delete vidasAnteriores[id];
+        }
+    }
+}
+
+// ============================================================
+// 🆕 VERIFICA CARTAS NOVAS (USA SUA ANIMAÇÃO)
+// ============================================================
+
+function verificarCartasNovas(game) {
+    const seats = [1, 2];
+    seats.forEach((seat, index) => {
+        const player = game.players[index];
+        if (!player) return;
+
+        const cartasAtuais = player.hand || [];
+        const cartasAntes = cartasAnteriores[seat] || [];
+
+        if (cartasAtuais.length > cartasAntes.length) {
+            const novaCarta = cartasAtuais[cartasAtuais.length - 1];
+            const cartasDiv = document.getElementById('cartas' + seat);
+            if (cartasDiv) {
+                const cartaHtml = htmlCarta(
+                    { valor: novaCarta.value, naipe: novaCarta.suit },
+                    true
+                );
+                cartasDiv.insertAdjacentHTML('beforeend', cartaHtml);
+            }
+        }
+        cartasAnteriores[seat] = cartasAtuais;
+    });
+}
+
+// ============================================================
+// 🆕 ATUALIZA INTERFACE (MANTÉM SUAS ANIMAÇÕES)
+// ============================================================
+
+function atualizarInterfaceComAnimacoes(game) {
+    const statusMap = {
+        'waiting': '🟢 WAITING FOR PLAYERS',
+        'dealing': '🃏 DEALING CARDS...',
+        'players': '🎯 PLAYERS TURN',
+        'dealer': '🎩 DEALER TURN',
+        'result': '🏁 ROUND OVER'
+    };
+    document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase;
+
+    const seats = [1, 2];
+    seats.forEach((seat, index) => {
+        const player = game.players[index];
+        const titulo = document.getElementById('titulo' + seat);
+        const status = document.getElementById('status' + seat);
+        const vidas = document.getElementById('vidas' + seat);
+        const pontuacao = document.getElementById('pontuacao' + seat);
+        const contador = document.getElementById('contador' + seat);
+        const resultado = document.getElementById('resultado' + seat);
+        const box = document.getElementById('box' + seat);
+
+        if (player) {
+            titulo.innerHTML = '👤 ' + player.nickname;
+            vidas.innerHTML = htmlVidas(player.lives || 3);
+            pontuacao.innerHTML = (player.score || 0) + ' points';
+            contador.innerHTML = '🃏 ' + (player.hand ? player.hand.length : 0) + ' cards';
+
+            box.classList.remove('eliminado');
+            if (player.lives <= 0) {
+                box.classList.add('eliminado');
+                status.innerHTML = '💀 ELIMINATED';
+            } else if (player.busted) {
+                status.innerHTML = '💥 BUSTED';
+                resultado.innerHTML = '💀 LOST!';
+                animarResultado(seat, 'derrota');
+            } else if (player.stand) {
+                status.innerHTML = '🛑 STAND';
+                resultado.innerHTML = '✅ ' + player.score + ' pts';
+            } else if (game.currentTurn === player.id && game.phase === 'players') {
+                status.innerHTML = '🔵 YOUR TURN';
+                box.classList.add('vez');
+            } else {
+                status.innerHTML = '🟡 WAITING';
+                box.classList.remove('vez');
+            }
+
+            if (player.blackjack) {
+                status.innerHTML = '🃏 BLACKJACK!';
+                resultado.innerHTML = '🃏 BLACKJACK!';
+                animarResultado(seat, 'blackjack');
+                mostrarBlackjack(player.nickname, player.score);
+            }
+        } else {
+            titulo.innerHTML = '👤 SEAT ' + seat;
+            status.innerHTML = '⚪ OPEN';
+            vidas.innerHTML = htmlVidas(3);
+            pontuacao.innerHTML = '0 points';
+            contador.innerHTML = '🃏 0 cards';
+            resultado.innerHTML = '';
+            box.classList.remove('vez', 'eliminado');
+        }
+    });
+}
+
+// ============================================================
+// 🆕 SOBRESCREVE APENAS O COMPORTAMENTO DOS BOTÕES
 // ============================================================
 
 const _cartaJogadorOriginal = cartaJogador;
@@ -5356,8 +5548,11 @@ entrar = function() {
 console.log('✅ Integration with server activated!');
 console.log('📡 Waiting for server events...');
 
-// ⬆️⬆️⬆️ FIM DOS BLOCOS ⬆️⬆️⬆️
+</script>
 
+</body>
+
+</html>
 
 </script>
 
