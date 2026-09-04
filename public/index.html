@@ -4299,7 +4299,8 @@ function cartaDealer(){
 
 
 /* =========================
-   DEALER DRAW========================= */
+   DEALER DRAW
+========================= */
 
 function comprarCartaDealer(){
 
@@ -5145,20 +5146,21 @@ atualizarPontuacaoDealer();
 
 atualizarBotaoTelaCheia();
 
-// ============================================================
-// 🆕 INTEGRAÇÃO COM O SERVIDOR (SSE) – ADICIONADO AO SEU CÓDIGO
-// ============================================================
-
-console.log('🔄 Conectando ao servidor...');
+// ⬇️⬇️⬇️ COLE OS 4 BLOCOS AQUI ⬇️⬇️⬇️
 
 // ============================================================
-// 1. CONEXÃO SSE
+// 🆕 CONEXÃO COM O SERVIDOR (SSE)
 // ============================================================
+
+console.log('🔄 Connecting to server...');
+
 let serverGameState = {
     players: [],
     phase: 'waiting',
     currentTurn: null
 };
+
+let vidasAnteriores = {};
 
 const eventSource = new EventSource('/events');
 
@@ -5167,6 +5169,7 @@ eventSource.onmessage = function(event) {
         const data = JSON.parse(event.data);
         if (data.type === 'state') {
             serverGameState = data.data;
+            verificarMudancasVidas(serverGameState);
             atualizarJogadoresDoServidor(serverGameState);
         } else if (data.type === 'message') {
             narrar(data.data);
@@ -5178,14 +5181,46 @@ eventSource.onmessage = function(event) {
 };
 
 eventSource.onerror = function() {
-    console.log('⚠️ SSE desconectado, reconectando...');
+    console.log('⚠️ SSE disconnected, reconnecting...');
 };
 
 // ============================================================
-// 2. ATUALIZAR JOGADORES VIA SERVIDOR (SOBREESCREVE OS LOCAIS)
+// 🆕 VERIFICAR MUDANÇAS NAS VIDAS (PARA ANIMAÇÕES)
 // ============================================================
+
+function verificarMudancasVidas(game) {
+    for (const player of game.players) {
+        const id = player.id;
+        const vidasAtuais = player.lives || 3;
+        const vidasAntes = vidasAnteriores[id] || vidasAtuais;
+
+        if (vidasAtuais < vidasAntes) {
+            mostrarMensagemMesa(`💔 @${player.nickname} LOST A LIFE!`, 2000);
+            if (vidasAtuais <= 0) {
+                setTimeout(() => {
+                    animarExplosaoVidas();
+                    mostrarMensagemMesa(`💀 @${player.nickname} WAS ELIMINATED!`, 4000);
+                }, 300);
+            }
+        } else if (vidasAtuais > vidasAntes) {
+            mostrarMensagemMesa(`❤️ @${player.nickname} GAINED A LIFE!`, 2000);
+        }
+        vidasAnteriores[id] = vidasAtuais;
+    }
+
+    const idsAtivos = game.players.map(p => p.id);
+    for (const id of Object.keys(vidasAnteriores)) {
+        if (!idsAtivos.includes(id)) {
+            delete vidasAnteriores[id];
+        }
+    }
+}
+
+// ============================================================
+// 🆕 ATUALIZAR JOGADORES VIA SERVIDOR
+// ============================================================
+
 function atualizarJogadoresDoServidor(game) {
-    // Atualiza o status da mesa
     const statusMap = {
         'waiting': '🟢 WAITING FOR PLAYERS',
         'dealing': '🃏 DEALING CARDS...',
@@ -5195,7 +5230,6 @@ function atualizarJogadoresDoServidor(game) {
     };
     document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase;
 
-    // Atualiza os dois jogadores
     const seats = [1, 2];
     seats.forEach((seat, index) => {
         const player = game.players[index];
@@ -5209,13 +5243,11 @@ function atualizarJogadoresDoServidor(game) {
         const resultado = document.getElementById('resultado' + seat);
 
         if (player) {
-            // Preenche com dados do servidor
             titulo.innerHTML = '👤 ' + player.nickname;
             vidas.innerHTML = htmlVidas(player.lives || 3);
             pontuacao.innerHTML = (player.score || 0) + ' points';
             contador.innerHTML = '🃏 ' + (player.hand ? player.hand.length : 0) + ' cards';
 
-            // Cartas
             if (player.hand && player.hand.length > 0) {
                 cartas.innerHTML = player.hand.map(c => {
                     if (typeof c === 'string') {
@@ -5230,7 +5262,6 @@ function atualizarJogadoresDoServidor(game) {
                 cartas.innerHTML = '';
             }
 
-            // Status
             box.classList.remove('eliminado');
             if (player.lives <= 0) {
                 box.classList.add('eliminado');
@@ -5238,6 +5269,7 @@ function atualizarJogadoresDoServidor(game) {
             } else if (player.busted) {
                 status.innerHTML = '💥 BUSTED';
                 resultado.innerHTML = '💀 LOST!';
+                animarResultado(seat, 'derrota');
             } else if (player.stand) {
                 status.innerHTML = '🛑 STAND';
                 resultado.innerHTML = '✅ ' + player.score + ' pts';
@@ -5252,10 +5284,10 @@ function atualizarJogadoresDoServidor(game) {
             if (player.blackjack) {
                 status.innerHTML = '🃏 BLACKJACK!';
                 resultado.innerHTML = '🃏 BLACKJACK!';
+                animarResultado(seat, 'blackjack');
                 mostrarBlackjack(player.nickname, player.score);
             }
         } else {
-            // Assento vazio
             titulo.innerHTML = '👤 SEAT ' + seat;
             status.innerHTML = '⚪ OPEN';
             vidas.innerHTML = htmlVidas(3);
@@ -5269,69 +5301,66 @@ function atualizarJogadoresDoServidor(game) {
 }
 
 // ============================================================
-// 3. SOBRESCREVER FUNÇÕES DOS JOGADORES PARA USAR O SERVIDOR
+// 🆕 SOBRESCREVER FUNÇÕES DOS JOGADORES PARA USAR O SERVIDOR
 // ============================================================
 
-// Guarda a função original para não perder
 const _cartaJogadorOriginal = cartaJogador;
 const _pararOriginal = parar;
 const _entrarOriginal = entrar;
 
-// Sobrescreve para enviar comandos ao servidor
 cartaJogador = function(numero) {
     const player = serverGameState.players[numero - 1];
     if (!player) {
-        alert('Nenhum jogador nesta posição.');
+        alert('No player in this seat.');
         return;
     }
     if (serverGameState.currentTurn !== player.id) {
-        alert('⏳ Não é a vez deste jogador.');
+        alert('⏳ It is not this player\'s turn.');
         return;
     }
     fetch('/game-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'hit', userId: player.id })
-    }).catch(err => console.error('Erro no HIT:', err));
+    }).catch(err => console.error('HIT error:', err));
 };
 
 parar = function(numero) {
     const player = serverGameState.players[numero - 1];
     if (!player) {
-        alert('Nenhum jogador nesta posição.');
+        alert('No player in this seat.');
         return;
     }
     if (serverGameState.currentTurn !== player.id) {
-        alert('⏳ Não é a vez deste jogador.');
+        alert('⏳ It is not this player\'s turn.');
         return;
     }
     fetch('/game-state', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'stand', userId: player.id })
-    }).catch(err => console.error('Erro no STAND:', err));
+    }).catch(err => console.error('STAND error:', err));
 };
 
-// JOIN agora avisa para usar o TikTok
 entrar = function() {
     const input = document.getElementById('nomeEntrada');
     const nome = input.value.trim();
     if (!nome) {
-        alert('Digite um nome para teste local.');
+        alert('Enter a name for local test.');
         return;
     }
-    alert('Para entrar na mesa, use o comando BLACKJACK no chat do TikTok.');
+    alert('Use BLACKJACK in the TikTok chat to join the table.');
     input.value = '';
 };
 
-// As funções do dealer (cartaDealer, revelarDealer, dealerAutomatico, novaRodada)
-// permanecem as mesmas do seu código original (MANUAIS)
+console.log('✅ Integration with server activated!');
+console.log('📡 Waiting for server events...');
 
-console.log('✅ Integração com servidor ativada!');
-console.log('📡 Aguardando eventos do servidor...');
+// ⬆️⬆️⬆️ FIM DOS BLOCOS ⬆️⬆️⬆️
+
 
 </script>
 
 </body>
 
-</html>
+    </html>
