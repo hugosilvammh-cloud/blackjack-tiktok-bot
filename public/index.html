@@ -5146,169 +5146,6 @@ atualizarPontuacaoDealer();
 
 atualizarBotaoTelaCheia();
 
-// ⬇️⬇️⬇️ COLE OS 4 BLOCOS AQUI ⬇️⬇️⬇️
-
-// ============================================================
-// 🆕 CONEXÃO COM O SERVIDOR (SSE)
-// ============================================================
-
-console.log('🔄 Connecting to server...');
-
-let serverGameState = {
-    players: [],
-    phase: 'waiting',
-    currentTurn: null
-};
-
-let vidasAnteriores = {};
-
-const eventSource = new EventSource('/events');
-
-eventSource.onmessage = function(event) {
-    try {
-        const data = JSON.parse(event.data);
-        if (data.type === 'state') {
-            serverGameState = data.data;
-            verificarMudancasVidas(serverGameState);
-            atualizarJogadoresDoServidor(serverGameState);
-        } else if (data.type === 'message') {
-            narrar(data.data);
-            evento(data.data);
-        }
-    } catch (e) {
-        console.error('SSE error:', e);
-    }
-};
-
-eventSource.onerror = function() {
-    console.log('⚠️ SSE disconnected, reconnecting...');
-};
-
-// ============================================================
-// 🆕 VERIFICAR MUDANÇAS NAS VIDAS (PARA ANIMAÇÕES)
-// ============================================================
-
-function verificarMudancasVidas(game) {
-    for (const player of game.players) {
-        const id = player.id;
-        const vidasAtuais = player.lives || 3;
-        const vidasAntes = vidasAnteriores[id] || vidasAtuais;
-
-        if (vidasAtuais < vidasAntes) {
-            mostrarMensagemMesa(`💔 @${player.nickname} LOST A LIFE!`, 2000);
-            if (vidasAtuais <= 0) {
-                setTimeout(() => {
-                    animarExplosaoVidas();
-                    mostrarMensagemMesa(`💀 @${player.nickname} WAS ELIMINATED!`, 4000);
-                }, 300);
-            }
-        } else if (vidasAtuais > vidasAntes) {
-            mostrarMensagemMesa(`❤️ @${player.nickname} GAINED A LIFE!`, 2000);
-        }
-        vidasAnteriores[id] = vidasAtuais;
-    }
-
-    const idsAtivos = game.players.map(p => p.id);
-    for (const id of Object.keys(vidasAnteriores)) {
-        if (!idsAtivos.includes(id)) {
-            delete vidasAnteriores[id];
-        }
-    }
-}
-
-// ============================================================
-// 🆕 ATUALIZAR JOGADORES VIA SERVIDOR
-// ============================================================
-
-function atualizarJogadoresDoServidor(game) {
-    const statusMap = {
-        'waiting': '🟢 WAITING FOR PLAYERS',
-        'dealing': '🃏 DEALING CARDS...',
-        'players': '🎯 PLAYERS TURN',
-        'dealer': '🎩 DEALER TURN',
-        'result': '🏁 ROUND OVER'
-    };
-    document.getElementById('statusMesa').innerHTML = statusMap[game.phase] || game.phase;
-
-    const seats = [1, 2];
-    seats.forEach((seat, index) => {
-        const player = game.players[index];
-        const box = document.getElementById('box' + seat);
-        const titulo = document.getElementById('titulo' + seat);
-        const status = document.getElementById('status' + seat);
-        const vidas = document.getElementById('vidas' + seat);
-        const pontuacao = document.getElementById('pontuacao' + seat);
-        const contador = document.getElementById('contador' + seat);
-        const cartas = document.getElementById('cartas' + seat);
-        const resultado = document.getElementById('resultado' + seat);
-
-        if (player) {
-            titulo.innerHTML = '👤 ' + player.nickname;
-            vidas.innerHTML = htmlVidas(player.lives || 3);
-            pontuacao.innerHTML = (player.score || 0) + ' points';
-            contador.innerHTML = '🃏 ' + (player.hand ? player.hand.length : 0) + ' cards';
-
-            if (player.hand && player.hand.length > 0) {
-                cartas.innerHTML = player.hand.map(c => {
-                    if (typeof c === 'string') {
-                        const valor = c.replace(/[♥♦♣♠]/g, '');
-                        const naipe = c.replace(/[^♥♦♣♠]/g, '');
-                        return `<span class="carta">${valor}<span class="naipe">${naipe}</span></span>`;
-                    } else {
-                        return `<span class="carta">${c.value}<span class="naipe">${c.suit}</span></span>`;
-                    }
-                }).join('');
-            } else {
-                cartas.innerHTML = '';
-            }
-
-            box.classList.remove('eliminado');
-            if (player.lives <= 0) {
-                box.classList.add('eliminado');
-                status.innerHTML = '💀 ELIMINATED';
-            } else if (player.busted) {
-                status.innerHTML = '💥 BUSTED';
-                resultado.innerHTML = '💀 LOST!';
-                animarResultado(seat, 'derrota');
-            } else if (player.stand) {
-                status.innerHTML = '🛑 STAND';
-                resultado.innerHTML = '✅ ' + player.score + ' pts';
-            } else if (game.currentTurn === player.id && game.phase === 'players') {
-                status.innerHTML = '🔵 YOUR TURN';
-                box.classList.add('vez');
-            } else {
-                status.innerHTML = '🟡 WAITING';
-                box.classList.remove('vez');
-            }
-
-            if (player.blackjack) {
-                status.innerHTML = '🃏 BLACKJACK!';
-                resultado.innerHTML = '🃏 BLACKJACK!';
-                animarResultado(seat, 'blackjack');
-                mostrarBlackjack(player.nickname, player.score);
-            }
-        } else {
-            titulo.innerHTML = '👤 SEAT ' + seat;
-            status.innerHTML = '⚪ OPEN';
-            vidas.innerHTML = htmlVidas(3);
-            pontuacao.innerHTML = '0 points';
-            contador.innerHTML = '🃏 0 cards';
-            cartas.innerHTML = '';
-            resultado.innerHTML = '';
-            box.classList.remove('vez', 'eliminado');
-        }
-    });
-}
-/* =========================
-   START
-========================= */
-
-criarBaralho();
-
-atualizarPontuacaoDealer();
-
-atualizarBotaoTelaCheia();
-
 // ============================================================
 // 🆕 INTEGRAÇÃO COM O SERVIDOR (SSE) - MANTÉM SUAS ANIMAÇÕES
 // ============================================================
@@ -5324,7 +5161,7 @@ let serverGameState = {
 let vidasAnteriores = {};
 let cartasAnteriores = { 1: [], 2: [] };
 
-const eventSource = new EventSource('/events');
+const eventSource = new EventSource('/events', { withCredentials: false });
 
 eventSource.onmessage = function(event) {
     try {
@@ -5348,6 +5185,9 @@ eventSource.onmessage = function(event) {
 
 eventSource.onerror = function() {
     console.log('⚠️ SSE disconnected, reconnecting...');
+    setTimeout(() => {
+        location.reload();
+    }, 5000);
 };
 
 // ============================================================
@@ -5553,9 +5393,3 @@ console.log('📡 Waiting for server events...');
 </body>
 
 </html>
-
-</script>
-
-</body>
-
-    </html>
