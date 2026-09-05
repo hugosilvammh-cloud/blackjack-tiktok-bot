@@ -17,7 +17,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // =====================================================
-// CONFIGURAÇÃO
+// CONFIG
 // =====================================================
 
 const PORT = process.env.PORT || 10000;
@@ -39,11 +39,8 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // =====================================================
-// CONFIGURAÇÃO DO JOGO
+// GAME
 // =====================================================
-
-const MAX_PLAYERS = 2;
-const MAX_LIVES = 3;
 
 const game = {
   phase: 'waiting',
@@ -55,32 +52,24 @@ const game = {
 
   currentTurn: null,
 
-  maxPlayers: MAX_PLAYERS,
+  maxPlayers: 2,
+  maxLives: 3,
 
-  messages: [],
-
-  roundNumber: 0
+  messages: []
 };
 
 // =====================================================
-// CONTROLE DE TIMERS
+// CONNECTION CLIENTS - SSE
 // =====================================================
 
-let startRoundTimer = null;
-let nextRoundTimer = null;
-let dealerTimer = null;
+const clients = new Set();
 
 // =====================================================
-// CLIENTES SSE
-// =====================================================
-
-const clients = [];
-
-// =====================================================
-// BARALHO
+// DECK
 // =====================================================
 
 function createDeck() {
+
   const suits = ['♥️', '♦️', '♣️', '♠️'];
 
   const values = [
@@ -99,35 +88,42 @@ function createDeck() {
     'K'
   ];
 
-  const newDeck = [];
+  const cards = [];
 
   for (const suit of suits) {
+
     for (const value of values) {
-      newDeck.push({
+
+      cards.push({
         value,
         suit
       });
+
     }
+
   }
 
-  // Fisher-Yates shuffle
-  for (let i = newDeck.length - 1; i > 0; i--) {
+  // Shuffle
+  for (let i = cards.length - 1; i > 0; i--) {
+
     const j = Math.floor(Math.random() * (i + 1));
 
-    [newDeck[i], newDeck[j]] =
-      [newDeck[j], newDeck[i]];
+    [cards[i], cards[j]] =
+      [cards[j], cards[i]];
+
   }
 
-  return newDeck;
+  return cards;
 }
 
 let deck = createDeck();
 
 // =====================================================
-// COMPRAR CARTA
+// DRAW CARD
 // =====================================================
 
 function drawCard() {
+
   if (deck.length === 0) {
     deck = createDeck();
   }
@@ -136,90 +132,78 @@ function drawCard() {
 }
 
 // =====================================================
-// CALCULAR PONTUAÇÃO
+// SCORE
 // =====================================================
 
 function handScore(hand) {
+
   let total = 0;
   let aces = 0;
 
   for (const card of hand) {
+
     if (card.value === 'A') {
+
       total += 11;
       aces++;
+
     } else if (
       ['J', 'Q', 'K'].includes(card.value)
     ) {
+
       total += 10;
+
     } else {
+
       total += Number(card.value);
+
     }
+
   }
 
-  // Ajusta Ás de 11 para 1 quando necessário
   while (total > 21 && aces > 0) {
+
     total -= 10;
     aces--;
+
   }
 
   return total;
 }
 
 // =====================================================
-// NORMALIZAR ID DO USUÁRIO
+// SAFE PUBLIC STATE
 // =====================================================
 
-function getUserIdentity(data) {
-
-  const user = data?.user || {};
-
-  /*
-   * O TikTok Live Connector fornece:
-   *
-   * data.user.uniqueId
-   * data.user.nickname
-   * data.user.userId
-   *
-   * Usamos userId primeiro e uniqueId como fallback.
-   */
-
-  const userId =
-    user.userId ??
-    user.uniqueId ??
-    data?.userId ??
-    data?.uniqueId ??
-    null;
-
-  const nickname =
-    user.nickname ??
-    user.uniqueId ??
-    data?.nickname ??
-    'player';
-
-  if (!userId) {
-    return null;
-  }
+function getPublicState() {
 
   return {
-    id: String(userId),
-    nickname: String(nickname)
+    phase: game.phase,
+
+    players: game.players.map(player => ({
+      id: player.id,
+      nickname: player.nickname,
+      lives: player.lives,
+
+      hand: player.hand,
+
+      score: player.score,
+
+      stand: player.stand,
+      busted: player.busted,
+      blackjack: player.blackjack
+    })),
+
+    dealerHand: game.dealerHand,
+
+    dealerScore: game.dealerScore,
+
+    currentTurn: game.currentTurn,
+
+    maxPlayers: game.maxPlayers,
+
+    messages: game.messages.slice(-20)
   };
-}
-
-// =====================================================
-// NORMALIZAR MENSAGEM
-// =====================================================
-
-function normalizeMessage(text) {
-
-  if (typeof text !== 'string') {
-    return '';
-  }
-
-  return text
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toUpperCase();
 }
 
 // =====================================================
@@ -228,24 +212,22 @@ function normalizeMessage(text) {
 
 function broadcastState() {
 
-  const data = {
+  const payload = {
     type: 'state',
-    data: game
+    data: getPublicState()
   };
 
-  const payload =
-    `data: ${JSON.stringify(data)}\n\n`;
+  const message =
+    `data: ${JSON.stringify(payload)}\n\n`;
 
   for (const client of clients) {
 
     try {
-      client.write(payload);
-    } catch (error) {
-      console.error(
-        '❌ Erro enviando state:',
-        error.message
-      );
+      client.write(message);
+    } catch {
+      clients.delete(client);
     }
+
   }
 }
 
@@ -255,165 +237,94 @@ function broadcastState() {
 
 function broadcastMessage(text) {
 
-  const message = {
+  console.log(`📢 ${text}`);
+
+  game.messages.push(text);
+
+  if (game.messages.length > 50) {
+    game.messages.shift();
+  }
+
+  const payload = {
     type: 'message',
     data: text
   };
 
-  game.messages.push({
-    text,
-    time: Date.now()
-  });
-
-  // Mantém somente as últimas 30 mensagens
-  if (game.messages.length > 30) {
-    game.messages.shift();
-  }
-
-  const payload =
-    `data: ${JSON.stringify(message)}\n\n`;
+  const message =
+    `data: ${JSON.stringify(payload)}\n\n`;
 
   for (const client of clients) {
 
     try {
-      client.write(payload);
-    } catch (error) {
-      console.error(
-        '❌ Erro enviando mensagem:',
-        error.message
-      );
+      client.write(message);
+    } catch {
+      clients.delete(client);
     }
+
   }
 
-  console.log(`📢 ${text}`);
+  broadcastState();
 }
 
 // =====================================================
-// ENCONTRAR JOGADOR
+// FIND PLAYER
 // =====================================================
 
 function findPlayer(userId) {
 
-  if (!userId) {
-    return null;
-  }
-
   return game.players.find(
-    player => player.id === String(userId)
-  ) || null;
-}
-
-// =====================================================
-// PRÓXIMO JOGADOR
-// =====================================================
-
-function findNextActivePlayer(currentUserId) {
-
-  if (game.players.length === 0) {
-    return null;
-  }
-
-  const currentIndex =
-    game.players.findIndex(
-      player => player.id === currentUserId
-    );
-
-  let startIndex = 0;
-
-  if (currentIndex >= 0) {
-    startIndex =
-      (currentIndex + 1) %
-      game.players.length;
-  }
-
-  for (let i = 0; i < game.players.length; i++) {
-
-    const index =
-      (startIndex + i) %
-      game.players.length;
-
-    const player =
-      game.players[index];
-
-    if (
-      !player.stand &&
-      !player.busted
-    ) {
-      return player;
-    }
-  }
-
-  return null;
-}
-
-// =====================================================
-// DEFINIR PRÓXIMO TURNO
-// =====================================================
-
-function goToNextTurn(currentUserId) {
-
-  const next =
-    findNextActivePlayer(currentUserId);
-
-  if (!next) {
-
-    game.currentTurn = null;
-
-    startDealerTurn();
-
-    return;
-  }
-
-  game.currentTurn = next.id;
-
-  broadcastState();
-
-  broadcastMessage(
-    `🎯 It's @${next.nickname}'s turn.`
+    player => player.id === userId
   );
+
 }
 
 // =====================================================
-// ADICIONAR JOGADOR
+// ADD PLAYER
 // =====================================================
+
+let startTimer = null;
 
 function addPlayer(userId, nickname) {
 
-  userId = String(userId);
+  if (!userId) {
 
-  const existing =
-    findPlayer(userId);
+    broadcastMessage(
+      `❌ Não consegui identificar @${nickname}.`
+    );
+
+    return false;
+  }
+
+  // Already playing
+  const existing = findPlayer(userId);
 
   if (existing) {
 
     broadcastMessage(
-      `⚠️ @${nickname}, you're already at the table.`
+      `⚠️ @${nickname}, você já está na mesa.`
     );
 
     return false;
   }
 
-  if (game.players.length >= MAX_PLAYERS) {
+  // Table full
+  if (game.players.length >= game.maxPlayers) {
 
     broadcastMessage(
-      `🚫 Table full! @${nickname}, wait for the next round.`
+      `🚫 Mesa cheia! @${nickname}, aguarde a próxima rodada.`
     );
 
     return false;
   }
 
-  /*
-   * Só permite entrar enquanto estamos
-   * esperando ou mostrando resultado.
-   */
-
+  // Game running
   if (
     game.phase !== 'waiting' &&
     game.phase !== 'result'
   ) {
 
     broadcastMessage(
-      `⏳ Game in progress, @${nickname}. Wait for the next round.`
+      `⏳ Rodada em andamento. @${nickname}, aguarde a próxima.`
     );
 
     return false;
@@ -421,11 +332,11 @@ function addPlayer(userId, nickname) {
 
   const player = {
 
-    id: userId,
+    id: String(userId),
 
-    nickname,
+    nickname: nickname || 'Player',
 
-    lives: MAX_LIVES,
+    lives: game.maxLives,
 
     hand: [],
 
@@ -441,71 +352,81 @@ function addPlayer(userId, nickname) {
   game.players.push(player);
 
   broadcastMessage(
-    `🃏 @${nickname} joined the table! (${game.players.length}/${MAX_PLAYERS})`
+    `🃏 @${player.nickname} entrou na mesa! ` +
+    `(${game.players.length}/${game.maxPlayers})`
   );
 
   broadcastState();
 
   // ===================================================
-  // PRIMEIRO JOGADOR
+  // ONE PLAYER
   // ===================================================
 
   if (game.players.length === 1) {
 
-    clearTimeout(startRoundTimer);
+    if (startTimer) {
+      clearTimeout(startTimer);
+    }
 
-    startRoundTimer =
-      setTimeout(() => {
+    startTimer = setTimeout(() => {
 
-        if (
-          game.phase === 'waiting' &&
-          game.players.length > 0
-        ) {
+      startTimer = null;
 
-          broadcastMessage(
-            '🎯 Starting the round!'
-          );
+      if (
+        game.phase === 'waiting' &&
+        game.players.length > 0
+      ) {
 
-          startRound();
-        }
+        broadcastMessage(
+          '🎯 Apenas um jogador. Vamos começar!'
+        );
 
-      }, 3000);
+        startRound();
+
+      }
+
+    }, 5000);
+
   }
 
   // ===================================================
-  // MESA CHEIA
+  // TWO PLAYERS
   // ===================================================
 
-  if (game.players.length === MAX_PLAYERS) {
+  if (
+    game.players.length === game.maxPlayers
+  ) {
 
-    clearTimeout(startRoundTimer);
+    if (startTimer) {
 
-    startRoundTimer =
-      setTimeout(() => {
+      clearTimeout(startTimer);
+      startTimer = null;
 
-        if (
-          game.phase === 'waiting' &&
-          game.players.length === MAX_PLAYERS
-        ) {
+    }
 
-          startRound();
-        }
+    setTimeout(() => {
 
-      }, 1000);
+      if (
+        game.phase === 'waiting' &&
+        game.players.length === game.maxPlayers
+      ) {
+
+        startRound();
+
+      }
+
+    }, 1000);
+
   }
 
   return true;
 }
 
 // =====================================================
-// INICIAR RODADA
+// START ROUND
 // =====================================================
 
 function startRound() {
-
-  clearTimeout(startRoundTimer);
-  clearTimeout(nextRoundTimer);
-  clearTimeout(dealerTimer);
 
   if (game.players.length === 0) {
 
@@ -517,30 +438,16 @@ function startRound() {
     return;
   }
 
-  if (
-    game.phase === 'players' ||
-    game.phase === 'dealing' ||
-    game.phase === 'dealer'
-  ) {
-    return;
-  }
-
-  game.roundNumber++;
-
   game.phase = 'dealing';
 
   game.currentTurn = null;
 
   game.dealerHand = [];
-
   game.dealerScore = 0;
 
   deck = createDeck();
 
-  // ===================================================
-  // RESET DA RODADA
-  // ===================================================
-
+  // Reset players
   for (const player of game.players) {
 
     player.hand = [];
@@ -552,40 +459,32 @@ function startRound() {
     player.busted = false;
 
     player.blackjack = false;
+
   }
 
   // ===================================================
-  // DISTRIBUI 2 CARTAS
+  // DEAL TWO CARDS
   // ===================================================
 
-  for (let i = 0; i < 2; i++) {
+  for (let round = 0; round < 2; round++) {
 
     for (const player of game.players) {
 
       player.hand.push(
         drawCard()
       );
+
     }
+
   }
 
-  // ===================================================
-  // DEALER
-  // ===================================================
-
-  /*
-   * O dealer recebe inicialmente
-   * somente uma carta visível.
-   *
-   * A segunda carta será comprada
-   * quando o dealer começar sua vez.
-   */
-
+  // Dealer gets one visible card
   game.dealerHand = [
     drawCard()
   ];
 
   // ===================================================
-  // CALCULA JOGADORES
+  // CALCULATE PLAYERS
   // ===================================================
 
   for (const player of game.players) {
@@ -599,13 +498,14 @@ function startRound() {
     ) {
 
       player.blackjack = true;
-
       player.stand = true;
 
       broadcastMessage(
-        `🃏🔥 @${player.nickname} has BLACKJACK!`
+        `🃏 BLACKJACK! @${player.nickname}!`
       );
+
     }
+
   }
 
   game.dealerScore =
@@ -614,7 +514,7 @@ function startRound() {
   game.phase = 'players';
 
   // ===================================================
-  // PRIMEIRO JOGADOR
+  // FIRST TURN
   // ===================================================
 
   const firstPlayer =
@@ -624,29 +524,93 @@ function startRound() {
         !player.busted
     );
 
-  if (firstPlayer) {
-
-    game.currentTurn =
-      firstPlayer.id;
-
-  } else {
-
-    game.currentTurn = null;
-  }
+  game.currentTurn =
+    firstPlayer
+      ? firstPlayer.id
+      : null;
 
   broadcastState();
 
   if (firstPlayer) {
 
     broadcastMessage(
-      `🎯 @${firstPlayer.nickname}'s turn. Type 1 = HIT or 2 = STAND.`
+      `🎯 É a vez de @${firstPlayer.nickname}!`
     );
 
   } else {
 
-    // Todos deram blackjack
-    startDealerTurn();
+    checkRoundEnd();
+
   }
+
+}
+
+// =====================================================
+// NEXT PLAYER
+// =====================================================
+
+function nextPlayer() {
+
+  if (game.players.length === 0) {
+
+    game.currentTurn = null;
+
+    game.phase = 'waiting';
+
+    broadcastState();
+
+    return;
+
+  }
+
+  const currentIndex =
+    game.players.findIndex(
+      player =>
+        player.id === game.currentTurn
+    );
+
+  let startIndex =
+    currentIndex >= 0
+      ? currentIndex + 1
+      : 0;
+
+  for (
+    let i = 0;
+    i < game.players.length;
+    i++
+  ) {
+
+    const index =
+      (startIndex + i) %
+      game.players.length;
+
+    const player =
+      game.players[index];
+
+    if (
+      !player.stand &&
+      !player.busted
+    ) {
+
+      game.currentTurn =
+        player.id;
+
+      broadcastState();
+
+      broadcastMessage(
+        `🎯 É a vez de @${player.nickname}!`
+      );
+
+      return;
+
+    }
+
+  }
+
+  game.currentTurn = null;
+
+  checkRoundEnd();
+
 }
 
 // =====================================================
@@ -670,7 +634,7 @@ function hitPlayer(userId) {
   if (game.phase !== 'players') {
 
     broadcastMessage(
-      `⏳ @${player.nickname}, the game is not accepting HIT right now.`
+      `⏳ @${player.nickname}, a rodada não está recebendo jogadas agora.`
     );
 
     return false;
@@ -678,8 +642,12 @@ function hitPlayer(userId) {
 
   if (game.currentTurn !== player.id) {
 
+    const current =
+      findPlayer(game.currentTurn);
+
     broadcastMessage(
-      `⚠️ @${player.nickname}, it's not your turn.`
+      `⏳ @${player.nickname}, não é sua vez. ` +
+      `${current ? `Agora é a vez de @${current.nickname}.` : ''}`
     );
 
     return false;
@@ -689,9 +657,11 @@ function hitPlayer(userId) {
     player.stand ||
     player.busted
   ) {
+
     return false;
   }
 
+  // Draw card
   const card = drawCard();
 
   player.hand.push(card);
@@ -699,8 +669,8 @@ function hitPlayer(userId) {
   player.score =
     handScore(player.hand);
 
-  broadcastMessage(
-    `🃏 @${player.nickname} drew ${card.value}${card.suit}.`
+  console.log(
+    `🃏 HIT -> @${player.nickname} recebeu ${card.value}${card.suit} = ${player.score}`
   );
 
   // ===================================================
@@ -712,48 +682,34 @@ function hitPlayer(userId) {
     player.busted = true;
 
     player.lives =
-      Math.max(0, player.lives - 1);
+      Math.max(
+        0,
+        player.lives - 1
+      );
 
     broadcastMessage(
-      `💥 @${player.nickname} busted with ${player.score}! ❤️ Lives: ${player.lives}`
+      `💥 @${player.nickname} estourou com ${player.score}! ` +
+      `❤️ ${player.lives} vidas restantes.`
     );
 
-    // Elimina se chegou a zero
     if (player.lives <= 0) {
 
       broadcastMessage(
-        `💀 @${player.nickname} has been eliminated!`
+        `💀 @${player.nickname} foi eliminado!`
       );
-
-      const eliminatedId =
-        player.id;
 
       game.players =
         game.players.filter(
-          p => p.id !== eliminatedId
+          p => p.id !== player.id
         );
 
-      game.currentTurn = null;
-
-      broadcastState();
-
-      if (game.players.length === 0) {
-
-        game.phase = 'waiting';
-
-        broadcastState();
-
-        return true;
-      }
-
-      goToNextTurn(eliminatedId);
-
-      return true;
     }
+
+    game.currentTurn = null;
 
     broadcastState();
 
-    goToNextTurn(player.id);
+    checkRoundEnd();
 
     return true;
   }
@@ -767,15 +723,19 @@ function hitPlayer(userId) {
     player.stand = true;
 
     broadcastMessage(
-      `🎯 @${player.nickname} got 21!`
+      `🎯 @${player.nickname} chegou a 21!`
     );
 
     broadcastState();
 
-    goToNextTurn(player.id);
+    checkRoundEnd();
 
     return true;
   }
+
+  broadcastMessage(
+    `🃏 @${player.nickname} pediu carta e ficou com ${player.score}.`
+  );
 
   broadcastState();
 
@@ -796,18 +756,17 @@ function standPlayer(userId) {
   }
 
   if (game.phase !== 'players') {
-
-    broadcastMessage(
-      `⏳ @${player.nickname}, the game is not accepting STAND right now.`
-    );
-
     return false;
   }
 
   if (game.currentTurn !== player.id) {
 
+    const current =
+      findPlayer(game.currentTurn);
+
     broadcastMessage(
-      `⚠️ @${player.nickname}, it's not your turn.`
+      `⏳ @${player.nickname}, não é sua vez.` +
+      `${current ? ` Agora é @${current.nickname}.` : ''}`
     );
 
     return false;
@@ -817,230 +776,68 @@ function standPlayer(userId) {
     player.stand ||
     player.busted
   ) {
+
     return false;
   }
 
   player.stand = true;
 
   broadcastMessage(
-    `🛑 @${player.nickname} stands with ${player.score}.`
+    `🛑 @${player.nickname} parou com ${player.score} pontos.`
   );
 
   broadcastState();
 
-  goToNextTurn(player.id);
+  checkRoundEnd();
 
   return true;
 }
 
 // =====================================================
-// DEALER
+// CHECK ROUND END
 // =====================================================
 
-function startDealerTurn() {
+function checkRoundEnd() {
 
-  if (game.phase === 'dealer') {
+  if (game.players.length === 0) {
+
+    game.phase = 'waiting';
+
+    game.currentTurn = null;
+
+    broadcastState();
+
     return;
   }
 
-  clearTimeout(dealerTimer);
+  const allDone =
+    game.players.every(
+      player =>
+        player.stand ||
+        player.busted
+    );
 
-  game.phase = 'dealer';
+  if (!allDone) {
+
+    nextPlayer();
+
+    return;
+  }
+
+  // ===================================================
+  // DEALER
+  // ===================================================
 
   game.currentTurn = null;
+
+  game.phase = 'dealer';
 
   broadcastState();
 
   broadcastMessage(
-    '🎩 Dealer turn...'
+    '🎩 Todos terminaram. Agora é a vez do Dealer.'
   );
 
-  /*
-   * Pequena pausa para o frontend
-   * mostrar a animação antes das cartas.
-   */
-
-  dealerTimer =
-    setTimeout(
-      playDealer,
-      1000
-    );
-}
-
-// =====================================================
-// DEALER JOGA
-// =====================================================
-
-function playDealer() {
-
-  if (game.phase !== 'dealer') {
-    return;
-  }
-
-  /*
-   * Dealer recebe a segunda carta.
-   */
-
-  if (game.dealerHand.length < 2) {
-
-    game.dealerHand.push(
-      drawCard()
-    );
-
-    game.dealerScore =
-      handScore(game.dealerHand);
-
-    broadcastState();
-
-    broadcastMessage(
-      `🎩 Dealer reveals the hidden card.`
-    );
-  }
-
-  // ===================================================
-  // DEALER COMPRA ATÉ 17
-  // ===================================================
-
-  while (game.dealerScore < 17) {
-
-    const card = drawCard();
-
-    game.dealerHand.push(card);
-
-    game.dealerScore =
-      handScore(game.dealerHand);
-
-    broadcastState();
-
-    broadcastMessage(
-      `🎩 Dealer draws ${card.value}${card.suit}.`
-    );
-  }
-
-  finishRound();
-}
-
-// =====================================================
-// FINALIZAR RODADA
-// =====================================================
-
-function finishRound() {
-
-  if (game.phase !== 'dealer') {
-    return;
-  }
-
-  game.phase = 'result';
-
-  game.currentTurn = null;
-
-  const dealerScore =
-    game.dealerScore;
-
-  // ===================================================
-  // RESULTADO
-  // ===================================================
-
-  for (const player of [...game.players]) {
-
-    if (player.busted) {
-      continue;
-    }
-
-    let result = '';
-
-    // Dealer estourou
-    if (dealerScore > 21) {
-
-      result =
-        `🎉 @${player.nickname} wins! Dealer busted.`;
-
-    }
-
-    // Jogador maior
-    else if (player.score > dealerScore) {
-
-      result =
-        `🎉 @${player.nickname} wins with ${player.score}!`;
-
-    }
-
-    // Dealer maior
-    else if (player.score < dealerScore) {
-
-      player.lives =
-        Math.max(0, player.lives - 1);
-
-      result =
-        `😢 @${player.nickname} loses. Dealer has ${dealerScore}. ❤️ Lives: ${player.lives}`;
-    }
-
-    // Empate
-    else {
-
-      result =
-        `🤝 @${player.nickname} ties with the dealer at ${dealerScore}.`;
-    }
-
-    broadcastMessage(result);
-  }
-
-  // ===================================================
-  // ELIMINA JOGADORES SEM VIDAS
-  // ===================================================
-
-  const eliminated =
-    game.players.filter(
-      player => player.lives <= 0
-    );
-
-  for (const player of eliminated) {
-
-    broadcastMessage(
-      `💀 @${player.nickname} has been eliminated!`
-    );
-  }
-
-  game.players =
-    game.players.filter(
-      player => player.lives > 0
-    );
-
-  broadcastState();
-
-  // ===================================================
-  // PRÓXIMA RODADA
-  // ===================================================
-
-  nextRoundTimer =
-    setTimeout(() => {
-
-      if (game.players.length === 0) {
-
-        game.phase = 'waiting';
-
-        game.dealerHand = [];
-
-        game.dealerScore = 0;
-
-        game.currentTurn = null;
-
-        broadcastMessage(
-          '🪑 Table empty. Type BLACKJACK to join!'
-        );
-
-        broadcastState();
-
-        return;
-      }
-
-      broadcastMessage(
-        '🔄 Starting a new round...'
-      );
-
-      startRound();
-
-    }, 5000);
 }
 
 // =====================================================
@@ -1049,7 +846,10 @@ function finishRound() {
 
 app.get('/state', (req, res) => {
 
-  res.json(game);
+  res.json(
+    getPublicState()
+  );
+
 });
 
 // =====================================================
@@ -1058,42 +858,43 @@ app.get('/state', (req, res) => {
 
 app.post('/game-state', (req, res) => {
 
-  const action =
-    normalizeMessage(req.body?.action);
-
-  const userId =
-    req.body?.userId
-      ? String(req.body.userId)
-      : null;
+  const {
+    action,
+    userId
+  } = req.body;
 
   console.log(
-    `📡 POST /game-state | action=${action} | userId=${userId}`
+    `📥 POST /game-state`,
+    req.body
   );
 
-  if (action === 'HIT') {
+  if (action === 'hit') {
 
     const success =
-      hitPlayer(userId);
+      hitPlayer(String(userId));
 
     return res.json({
       success
     });
+
   }
 
-  if (action === 'STAND') {
+  if (action === 'stand') {
 
     const success =
-      standPlayer(userId);
+      standPlayer(String(userId));
 
     return res.json({
       success
     });
+
   }
 
   return res.status(400).json({
     success: false,
     error: 'Invalid action'
   });
+
 });
 
 // =====================================================
@@ -1115,82 +916,47 @@ app.get('/events', (req, res) => {
 
     'Access-Control-Allow-Origin':
       '*'
+
   });
 
-  clients.push(res);
+  clients.add(res);
 
-  // Envia estado imediatamente
-  try {
+  console.log(
+    `📡 Novo cliente SSE. Total: ${clients.size}`
+  );
 
-    res.write(
-      `data: ${JSON.stringify({
-        type: 'state',
-        data: game
-      })}\n\n`
-    );
-
-  } catch (error) {
-
-    console.error(
-      '❌ Erro enviando estado inicial:',
-      error.message
-    );
-  }
+  // Send current state immediately
+  res.write(
+    `data: ${JSON.stringify({
+      type: 'state',
+      data: getPublicState()
+    })}\n\n`
+  );
 
   req.on('close', () => {
 
-    const index =
-      clients.indexOf(res);
-
-    if (index !== -1) {
-      clients.splice(index, 1);
-    }
+    clients.delete(res);
 
     console.log(
-      `📡 SSE disconnected. Clients: ${clients.length}`
+      `📡 Cliente SSE saiu. Total: ${clients.size}`
     );
+
   });
 
-  console.log(
-    `📡 SSE connected. Clients: ${clients.length}`
-  );
 });
 
 // =====================================================
-// TIKTOK LIVE
+// TIKTOK
 // =====================================================
 
-console.log(
-  '=============================================='
-);
-
-console.log(
-  '🤖 BLACKJACK TIKTOK BOT'
-);
-
-console.log(
-  '=============================================='
-);
-
-console.log(
-  `🎯 Looking for @${USERNAME}`
-);
-
-console.log(
-  `👥 Maximum players: ${MAX_PLAYERS}`
-);
-
-console.log(
-  `❤️ Lives per player: ${MAX_LIVES}`
-);
-
-console.log(
-  '=============================================='
-);
-
-// =====================================================
-// CONNECTION
-// =====================================================
+console.log('');
+console.log('==============================================');
+console.log('🤖 BLACKJACK TIKTOK BOT');
+console.log('==============================================');
+console.log(`🎯 Looking for @${USERNAME}`);
+console.log(`👥 Maximum players: ${game.maxPlayers}`);
+console.log(`❤️ Lives per player: ${game.maxLives}`);
+console.log('==============================================');
 
 const connection =
   new TikTokLiveConnection(
@@ -1204,138 +970,166 @@ const connection =
 // CONNECT
 // =====================================================
 
-let connecting = false;
+let reconnectTimer = null;
+let connected = false;
 
 async function connectToLive() {
 
-  if (connecting) {
+  if (connected) {
     return;
   }
 
-  connecting = true;
+  console.log(
+    `🔌 Connecting to @${USERNAME}...`
+  );
 
   try {
-
-    console.log(
-      `🔌 Connecting to @${USERNAME}...`
-    );
 
     const state =
       await connection.connect();
 
+    connected = true;
+
+    console.log('');
     console.log(
-      `🟢 CONNECTED TO TIKTOK LIVE!`
+      '🟢 CONNECTED TO TIKTOK LIVE!'
     );
 
     console.log(
       `🏠 Room ID: ${state.roomId}`
     );
 
-    connecting = false;
+    console.log(
+      '💬 Aguardando mensagens do chat...'
+    );
 
   } catch (error) {
 
-    connecting = false;
+    connected = false;
 
     console.log(
       `⏳ @${USERNAME} is not online yet.`
     );
 
     console.log(
-      `🔁 Trying again in 30 seconds...`
+      '❌ TikTok connection error:',
+      error?.message || error
     );
 
-    setTimeout(
-      connectToLive,
-      30000
-    );
+    scheduleReconnect();
+
   }
+
 }
 
 // =====================================================
-// TIKTOK CHAT
+// RECONNECT
+// =====================================================
+
+function scheduleReconnect() {
+
+  if (reconnectTimer) {
+    return;
+  }
+
+  reconnectTimer =
+    setTimeout(() => {
+
+      reconnectTimer = null;
+
+      connectToLive();
+
+    }, 30000);
+
+  console.log(
+    '🔁 Trying again in 30 seconds...'
+  );
+
+}
+
+// =====================================================
+// CHAT
 // =====================================================
 
 connection.on(
   WebcastEvent.CHAT,
   (data) => {
 
-    console.log(
-      '----------------------------------------------'
-    );
-
-    console.log(
-      '💬 CHAT EVENT RECEIVED'
-    );
-
-    /*
-     * O connector já entrega diretamente:
-     *
-     * data.comment
-     * data.user.uniqueId
-     * data.user.nickname
-     * data.user.userId
-     */
-
-    const identity =
-      getUserIdentity(data);
+    // =================================================
+    // CORRECT TIKTOK FIELDS
+    // =================================================
 
     const comment =
       typeof data?.comment === 'string'
         ? data.comment.trim()
         : '';
 
+    const uniqueId =
+      data?.uniqueId ||
+      data?.user?.uniqueId ||
+      null;
+
+    const userId =
+      data?.userId ||
+      data?.user?.userId ||
+      uniqueId ||
+      null;
+
+    const nickname =
+      data?.nickname ||
+      data?.user?.nickname ||
+      uniqueId ||
+      'anon';
+
     // =================================================
-    // SEM IDENTIDADE
+    // LOG RAW CHAT
     // =================================================
 
-    if (!identity) {
-
-      console.log(
-        '⚠️ Could not identify TikTok user.'
-      );
-
-      console.log(
-        'Raw user:',
-        data?.user
-      );
-
-      return;
-    }
+    console.log('');
+    console.log('💬 ================================');
+    console.log(`👤 @${nickname}`);
+    console.log(`🆔 userId: ${userId}`);
+    console.log(`🔑 uniqueId: ${uniqueId}`);
+    console.log(`📝 comment: "${comment}"`);
+    console.log('💬 ================================');
 
     // =================================================
-    // SEM COMENTÁRIO
+    // NO COMMENT
     // =================================================
 
     if (!comment) {
 
       console.log(
-        `⚠️ Empty comment from @${identity.nickname}`
+        '⚠️ CHAT recebido sem comment.'
       );
 
       return;
     }
 
-    const userId =
-      identity.id;
+    // =================================================
+    // IDENTIFICATION
+    // =================================================
 
-    const nickname =
-      identity.nickname;
+    if (!userId) {
+
+      console.log(
+        '❌ Não foi possível identificar o usuário.'
+      );
+
+      return;
+    }
+
+    // =================================================
+    // NORMALIZE MESSAGE
+    // =================================================
 
     const message =
-      normalizeMessage(comment);
+      comment
+        .trim()
+        .toUpperCase();
 
-    console.log(
-      `👤 User: @${nickname}`
-    );
-
-    console.log(
-      `🆔 ID: ${userId}`
-    );
-
-    console.log(
-      `💬 Message: "${message}"`
-    );
+    const playerId =
+      String(userId);
 
     // =================================================
     // BLACKJACK
@@ -1344,11 +1138,11 @@ connection.on(
     if (message === 'BLACKJACK') {
 
       console.log(
-        `🃏 JOIN COMMAND FROM @${nickname}`
+        `🃏 JOIN COMMAND -> @${nickname}`
       );
 
       addPlayer(
-        userId,
+        playerId,
         nickname
       );
 
@@ -1356,19 +1150,16 @@ connection.on(
     }
 
     // =================================================
-    // ENCONTRA JOGADOR
+    // FIND PLAYER
     // =================================================
 
     const player =
-      findPlayer(userId);
-
-    // Pessoa que não está na mesa
-    // não pode usar 1 ou 2.
+      findPlayer(playerId);
 
     if (!player) {
 
       console.log(
-        `ℹ️ @${nickname} is not a player.`
+        `ℹ️ @${nickname} não está na mesa.`
       );
 
       return;
@@ -1381,10 +1172,10 @@ connection.on(
     if (message === '1') {
 
       console.log(
-        `🃏 HIT from @${nickname}`
+        `🟢 HIT COMMAND -> @${nickname}`
       );
 
-      hitPlayer(userId);
+      hitPlayer(playerId);
 
       return;
     }
@@ -1396,21 +1187,61 @@ connection.on(
     if (message === '2') {
 
       console.log(
-        `🛑 STAND from @${nickname}`
+        `🛑 STAND COMMAND -> @${nickname}`
       );
 
-      standPlayer(userId);
+      standPlayer(playerId);
 
       return;
     }
 
     // =================================================
-    // OUTROS COMANDOS
+    // OTHER MESSAGE
     // =================================================
 
     console.log(
-      `ℹ️ Command ignored: "${message}"`
+      `💭 Mensagem ignorada: "${comment}"`
     );
+
+  }
+);
+
+// =====================================================
+// TIKTOK ERROR
+// =====================================================
+
+connection.on(
+  ControlEvent.ERROR,
+  (error) => {
+
+    connected = false;
+
+    console.error(
+      '❌ TikTok connection error:',
+      error
+    );
+
+    scheduleReconnect();
+
+  }
+);
+
+// =====================================================
+// DISCONNECT
+// =====================================================
+
+connection.on(
+  ControlEvent.DISCONNECTED,
+  () => {
+
+    connected = false;
+
+    console.log(
+      '🔴 TikTok disconnected.'
+    );
+
+    scheduleReconnect();
+
   }
 );
 
@@ -1423,13 +1254,16 @@ connection.on(
   (data) => {
 
     const name =
+      data?.nickname ||
       data?.user?.nickname ||
+      data?.uniqueId ||
       data?.user?.uniqueId ||
       'someone';
 
     console.log(
       `👤 @${name} entered the LIVE.`
     );
+
   }
 );
 
@@ -1442,13 +1276,16 @@ connection.on(
   (data) => {
 
     const name =
+      data?.nickname ||
       data?.user?.nickname ||
+      data?.uniqueId ||
       data?.user?.uniqueId ||
       'someone';
 
     console.log(
       `❤️ @${name} liked.`
     );
+
   }
 );
 
@@ -1461,47 +1298,16 @@ connection.on(
   (data) => {
 
     const name =
+      data?.nickname ||
       data?.user?.nickname ||
+      data?.uniqueId ||
       data?.user?.uniqueId ||
       'someone';
 
     console.log(
       `🎁 @${name} sent a gift.`
     );
-  }
-);
 
-// =====================================================
-// CONNECTION ERROR
-// =====================================================
-
-connection.on(
-  ControlEvent.ERROR,
-  (error) => {
-
-    console.error(
-      '❌ TikTok connection error:',
-      error
-    );
-  }
-);
-
-// =====================================================
-// DISCONNECTED
-// =====================================================
-
-connection.on(
-  ControlEvent.DISCONNECTED,
-  () => {
-
-    console.log(
-      '🔌 TikTok connection disconnected.'
-    );
-
-    setTimeout(
-      connectToLive,
-      10000
-    );
   }
 );
 
@@ -1513,13 +1319,18 @@ connection.on(
   WebcastEvent.STREAM_END,
   () => {
 
+    connected = false;
+
     console.log(
       '🔴 LIVE ended.'
     );
 
     broadcastMessage(
-      '🔴 LIVE ended. Bot waiting for next LIVE.'
+      '🔴 LIVE terminou. Aguardando a próxima LIVE.'
     );
+
+    scheduleReconnect();
+
   }
 );
 
@@ -1532,10 +1343,7 @@ app.listen(
   '0.0.0.0',
   () => {
 
-    console.log(
-      '=============================================='
-    );
-
+    console.log('');
     console.log(
       `🌐 Server running on port ${PORT}`
     );
@@ -1552,10 +1360,9 @@ app.listen(
       `📡 POST /game-state`
     );
 
-    console.log(
-      '=============================================='
-    );
+    console.log('');
 
     connectToLive();
+
   }
 );
